@@ -79,9 +79,11 @@ async def health_check():
 from app.routes.auth import auth_router, user_router
 from app.routes.resume import resume_router
 from app.routes.interview import interview_router
+from app.routes.roadmap import roadmap_router
 
 # Include routers
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(user_router, prefix="/api")
 app.include_router(resume_router, prefix="/api/resume")
 app.include_router(interview_router, prefix="/api/interview")
+app.include_router(roadmap_router, prefix="/api/roadmap")
