@@ -2,8 +2,7 @@ import json
 import logging
 from typing import Optional, Dict, Any
 from fastapi import Request, HTTPException, status, Cookie, Depends
-from app.core.redis import get_redis
-from app.core.db import get_supabase
+from app.core.redis import get_cache
 
 logger = logging.getLogger("fresherai.security")
 
@@ -14,8 +13,7 @@ async def get_current_user(
 ) -> Dict[str, Any]:
     """
     FastAPI dependency to extract and validate the user session from cookies.
-    Reads the session UUID from the 'session' cookie and queries Redis cache.
-    Falls back to Supabase DB if Redis key is missing.
+    Reads the session UUID from the 'session' cookie and queries Redis cache / local fallback.
     """
     session_id = session or request.cookies.get("session")
 
@@ -25,16 +23,14 @@ async def get_current_user(
             detail="Unauthorized: No session cookie provided",
         )
 
-    redis_client = await get_redis()
+    cached_session = await get_cache(f"session:{session_id}")
     user_data = None
 
-    if redis_client:
+    if cached_session:
         try:
-            cached_session = await redis_client.get(f"session:{session_id}")
-            if cached_session:
-                user_data = json.loads(cached_session)
+            user_data = json.loads(cached_session)
         except Exception as e:
-            logger.warning(f"Error reading session from Redis: {e}")
+            logger.warning(f"Error parsing session JSON: {e}")
 
     if not user_data:
         raise HTTPException(

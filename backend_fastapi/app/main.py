@@ -74,3 +74,10 @@ async def health_check():
         "cache": redis_status,
         "llm_model": settings.LLM_MODEL,
     }
+
+
+from app.routes.auth import auth_router, user_router
+
+# Include routers
+app.include_router(auth_router, prefix="/api/auth")
+app.include_router(user_router, prefix="/api")
