@@ -16,8 +16,8 @@ import { useDispatch, useSelector } from "react-redux";
 
 import { setResume } from "../../redux/resumeSlice";
 import { useNavigate } from "react-router-dom";
-import api from "../../utils/axios";
 import { startInterview } from "../../api/interview.api";
+import { uploadResume as apiUploadResume } from "../../api/resume.api";
 import { useCoins } from "../../api/user.api";
 
 function Step1SetUp({ user, setUser }) {
@@ -42,38 +42,51 @@ function Step1SetUp({ user, setUser }) {
     if (!file) return;
     try {
       setUploading(true);
-      const coinResponse = await useCoins({ coins: 10, action: "resume-score" })
-      
-      setUser((prev) => ({ ...prev, interviewCoin: coinResponse.interviewCoin }));
+      const coinResponse = await useCoins({ coins: 10, action: "resume-score" });
+      if (coinResponse?.interviewCoin !== undefined) {
+        setUser((prev) => ({ ...prev, interviewCoin: coinResponse.interviewCoin }));
+      }
       const formData = new FormData();
       formData.append("resume", file);
-      const response = await api.post("/api/resume/upload", formData);
-      dispatch(setResume(response.data.data));
-      setUploading(false);
+      const response = await apiUploadResume(formData);
+      if (response?.data) {
+        dispatch(setResume(response.data));
+      }
     } catch (error) {
-      console.log(error);
+      console.error("Resume upload error:", error);
+      alert(error.response?.data?.detail || error.response?.data?.message || "Failed to upload resume");
+    } finally {
       setUploading(false);
     }
   };
 
   const start = async () => {
-   
+    if (!role.trim()) {
+      alert("Please enter a target job role");
+      return;
+    }
+
+    try {
       setStarting(true);
-      const response = await startInterview({ role, type, useResume, resume })
-       
-       
-      
-      if (response) {
-        const coinResponse = await useCoins({ coins: 50, action: "interview" })
-        
-    
+      const coinResponse = await useCoins({ coins: 50, action: "interview" });
+      if (coinResponse?.interviewCoin !== undefined) {
         setUser((prev) => ({ ...prev, interviewCoin: coinResponse.interviewCoin }));
       }
+
+      const response = await startInterview({ role: role.trim(), type, useResume, resume });
+      if (response?.interviewId) {
+        navigate(`/interview/${response.interviewId}`);
+      } else {
+        throw new Error("Failed to create interview session");
+      }
+    } catch (error) {
+      console.error("Start interview error:", error);
+      alert(error.response?.data?.detail || error.response?.data?.message || "Failed to initialize interview. Check your coin balance.");
+    } finally {
       setStarting(false);
-      navigate(`/interview/${response.interviewId}`);
-    
-    
+    }
   };
+
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-3 sm:p-5">

@@ -10,88 +10,60 @@ import StatBox from "../components/Statbox";
 
 import InterviewGraph from "../components/InterviewGraph";
 
-import axios from "axios";
-
-
 import { useNavigate } from "react-router-dom";
-
 import { getAllInterviews } from "../api/interview.api";
-import api from "../utils/axios";
-
-
-
-
-
-
-
-
+import { logoutUser } from "../api/user.api";
 
 export default function Dashboard({ user, setUser }) {
-
-  const [collapsed, setCollapsed] = useState(false);   // desktop collapse
-
-  const [mobileOpen, setMobileOpen] = useState(false);   // mobile drawer
-
-
+  const [collapsed, setCollapsed] = useState(false); // desktop collapse
+  const [mobileOpen, setMobileOpen] = useState(false); // mobile drawer
 
   const [stats, setStats] = useState({
-
     totalInterviews: 0,
-
     totalQuestions: 0,
-
     completed: 0,
-
     averageScore: 0,
-
   });
 
   const [technicalData, setTechnicalData] = useState([]);
-
   const [behaviouralData, setBehaviouralData] = useState([]);
-
   const [technicalCount, setTechnicalCount] = useState(0);
-
   const [hrCount, setHrCount] = useState(0);
 
   const firstName = user?.name?.split(" ")[0] ?? "there";
+  const navigate = useNavigate();
 
-  const navigate = useNavigate()
   useEffect(() => {
-
-    
-
     const fetchInterviews = async () => {
-    
-       const response = await getAllInterviews();
-       
-        setStats(response.stats);
-
-        setTechnicalData(response.technicalData);
-
-        setBehaviouralData(response.behaviouralData);
-
-        setTechnicalCount(response.technicalCount);
-
-        setHrCount(response.hrCount);
-      
+      const response = await getAllInterviews();
+      if (response) {
+        setStats(response.stats || {
+          totalInterviews: 0,
+          totalQuestions: 0,
+          completed: 0,
+          averageScore: 0,
+        });
+        setTechnicalData(response.technicalData || []);
+        setBehaviouralData(response.behaviouralData || []);
+        setTechnicalCount(response.technicalCount || 0);
+        setHrCount(response.hrCount || 0);
+      }
     };
-    fetchInterviews()
-    
+    fetchInterviews();
   }, []);
 
   const handleLogout = async () => {
-   try {
-     const response = await api.get(
-       "/api/auth/logout");
-      if (response.data.success) {
+    try {
+      const response = await logoutUser();
+      if (response?.success !== false) {
         setUser(null);
-      navigate("/");
+        navigate("/");
       }
     } catch (error) {
-   console.log(error);
-   }
+      console.error("Logout error:", error);
+    }
   };
+
   return (
 
     <div className="bg-white min-h-screen text-[#0A0A0A] font-sans flex">

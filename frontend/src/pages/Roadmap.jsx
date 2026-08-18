@@ -7,11 +7,8 @@ import {
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import RoadmapResult from "../components/roadmap/RoadmapResult";
-import api from "../utils/axios";
+import { generateRoadmap, getAllRoadmaps, getRoadmapById as apiGetRoadmapById } from "../api/roadmap.api";
 import { useCoins } from "../api/user.api";
-
-
-
 
 const PACKAGE_OPTIONS = ["10 LPA", "15 LPA", "20 LPA", "30 LPA", "40 LPA"];
 
@@ -45,7 +42,7 @@ function Navbar({ onHistoryClick }) {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function Roadmap({setUser}) {
+export default function Roadmap({ setUser }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [roadmap, setRoadmap]         = useState(null);
   const [role, setRole]               = useState("");
@@ -57,41 +54,36 @@ export default function Roadmap({setUser}) {
   const [history, setHistory]         = useState([]);
   const [error, setError]             = useState("");
 
-  const {resume} = useSelector((state) => state.resume);
+  const { resume } = useSelector((state) => state.resume);
   const navigate = useNavigate();
 
   useEffect(() => {
-  getRoadmaps();
-}, []);
+    fetchRoadmaps();
+  }, []);
 
+  const fetchRoadmaps = async () => {
+    try {
+      setHistoryLoading(true);
+      const response = await getAllRoadmaps();
+      setHistory(response?.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
-const getRoadmaps = async () => {
-  try {
-    setHistoryLoading(true);
-
-    const response= await api.get(
-      "/api/roadmap"
-      
-    );
-    setHistory(response.data.data || []);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setHistoryLoading(false);
-  }
-};
-
-
-const getRoadmapById = async (id) => {
-  try {
-    const { data } = await api.get(
-      `/api/roadmap/${id}`
-    );
-    setRoadmap(data.data);
-  } catch (err) {
-    console.error(err);
-  }
-};
+  const handleSelectRoadmap = async (id) => {
+    try {
+      const response = await apiGetRoadmapById(id);
+      if (response?.data) {
+        setRoadmap(response.data);
+        setHistoryOpen(false);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // ── Generate a new roadmap ──
   async function handleGenerate() {
@@ -99,27 +91,29 @@ const getRoadmapById = async (id) => {
     setLoading(true);
     setError("");
     try {
-       const coinResponse = await useCoins({ coins: 20, action: "resume-score" }) 
-            setUser((prev) => ({ ...prev, interviewCoin: coinResponse.interviewCoin }));
-      const { data } = await api.post(
-        "/api/roadmap/generate",
-        {
-          role: role.trim(),
-          targetPackage,
-          useResume,
-          resume,
-        },
-      );
-      setRoadmap(data.data);
-      // refresh history in the background so the new roadmap shows up
-      getRoadmaps();
+      const coinResponse = await useCoins({ coins: 20, action: "roadmap" });
+      if (coinResponse?.interviewCoin !== undefined) {
+        setUser((prev) => ({ ...prev, interviewCoin: coinResponse.interviewCoin }));
+      }
+      const response = await generateRoadmap({
+        role: role.trim(),
+        targetPackage,
+        useResume,
+        resume,
+      });
+      if (response?.data) {
+        setRoadmap(response.data);
+      }
+      // refresh history in the background
+      fetchRoadmaps();
     } catch (err) {
       console.error("Failed to generate roadmap:", err);
-      setError("Something went wrong while generating your roadmap. Please try again.");
+      setError(err.response?.data?.detail || err.response?.data?.message || "Something went wrong while generating your roadmap. Please try again.");
     } finally {
       setLoading(false);
     }
   }
+
 
   return (
     <div className="min-h-screen bg-white text-[#0A0A0A] flex flex-col">
@@ -219,16 +213,14 @@ const getRoadmapById = async (id) => {
                 ) : (
                   history.map((item) => (
   <motion.button
-    key={item._id}
-    onClick={() => {
-      getRoadmapById(item._id);
-      setHistoryOpen(false);
-    }}
+    key={item._id || item.id}
+    onClick={() => handleSelectRoadmap(item._id || item.id)}
     className="relative overflow-hidden text-left p-4 rounded-xl bg-[#000]/90 border border-white/10"
   >
       <h3 className="text-white font-semibold">
         {item.title}
       </h3>
+
     <div className="flex justify-between items-center my-1">
     
 <span className="text-violet-400 text-xs">

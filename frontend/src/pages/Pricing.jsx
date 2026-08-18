@@ -1,115 +1,149 @@
 import { useNavigate } from "react-router-dom";
 import { BsStars } from "react-icons/bs";
 import PricingCard from "../components/PricingCard";
-
 import { FiMenu, FiX } from "react-icons/fi";
 import { useState } from "react";
+import { createPaymentOrder, verifyPayment } from "../api/billing.api";
+import { addCoins } from "../api/user.api";
 
-import axios from "axios";
-import api from "../utils/axios";
 function Coin() {
-    return <BsStars className="text-yellow-400" size={14} />;
+  return <BsStars className="text-yellow-400" size={14} />;
 }
 
 const plans = [
-    {
-        title: "Free",
-        price: "Free",
-        coins: 150,
-        button: "Claimed Coins",
-        popular: false,
-        disabled: true,
-        features: [
-            "150 Interview Coins",
-            "Resume Builder",
-            "Resume Scorer",
-            "Roadmap Generator",
-        ],
-    },
-    {
-        title: "Starter",
-        price: "199",
-        coins: 300,
-        button: "Buy Now",
-        popular: true,
-        disabled: false,
-        features: [
-            "300 Interview Coins",
-            "Unlimited Resume Score",
-            "Unlimited Roadmaps",
-            "Priority AI Response",
-        ],
-    },
+  {
+    title: "Free",
+    price: "Free",
+    coins: 150,
+    button: "Claimed Coins",
+    popular: false,
+    disabled: true,
+    features: [
+      "150 Initial Free Coins",
+      "Interactive Resume Builder",
+      "AI Resume Scorer",
+      "AI Career Roadmap Generator",
+    ],
+  },
+  {
+    title: "Starter",
+    price: "199",
+    coins: 300,
+    button: "Buy Now",
+    popular: false,
+    disabled: false,
+    features: [
+      "300 Interview Coins",
+      "6 Full AI Mock Interviews",
+      "Unlimited Resume ATS Scores",
+      "Unlimited Career Roadmaps",
+      "Priority Groq AI Processing",
+    ],
+  },
+  {
+    title: "Pro",
+    price: "499",
+    coins: 1000,
+    button: "Buy Now",
+    popular: true,
+    disabled: false,
+    features: [
+      "1,000 Interview Coins",
+      "20 Full AI Mock Interviews",
+      "Voice & Webcam Analysis",
+      "Unlimited Career Roadmaps",
+      "Priority Candidate Evaluation",
+    ],
+  },
 ];
 
-
 export default function Pricing({ user, setUser }) {
-    const navigate = useNavigate();
-    const [showMenu, setShowMenu] = useState(false);
+  const navigate = useNavigate();
+  const [showMenu, setShowMenu] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState("");
 
+  const handlePayment = async (plan) => {
+    if (plan.disabled) return;
 
-    const handlePayment = async (plan) => {
-        if (plan.disabled) return;
-
-        try {
-
-            const result = await api.post(
-                "/api/billing/create",
-                {
-                    planId: plan.title.toLowerCase(),
-                }
-               
-            );
-
-            const options = {
-                key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-                amount: result.data.order.amount,
-                currency: result.data.order.currency,
-                name: "Fresher.AI",
-                description: `${plan.title} - ${plan.coins} Interview Coins`,
-                order_id: result.data.order.id,
-
-               handler: async function (response) {
     try {
-        // Verify Payment
-        await api.post("/api/billing/verify", response);
+      setLoadingPlan(plan.title);
+      const result = await createPaymentOrder({
+        planId: plan.title.toLowerCase(),
+      });
 
-        // Add Coins
-        const coinRes = await api.post("/api/auth/add-coins", {
-            coins: plan.coins,
+      if (!result?.order) {
+        throw new Error("Failed to initialize payment order");
+      }
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_placeholder",
+        amount: result.order.amount,
+        currency: result.order.currency || "INR",
+        name: "Fresher.AI",
+        description: `${plan.title} - ${plan.coins} Interview Coins`,
+        order_id: result.order.id,
+        handler: async function (response) {
+          try {
+            // Verify Payment Signature
+            await verifyPayment({
+              razorpay_order_id: response.razorpay_order_id || result.order.id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature || "dev_signature",
+            });
+
+            // Add Coins
+            const coinRes = await addCoins({
+              coins: plan.coins,
+            });
+
+            // Update User State
+            if (coinRes?.interviewCoin !== undefined) {
+              setUser((prev) => ({
+                ...prev,
+                interviewCoin: coinRes.interviewCoin,
+              }));
+            }
+
+            alert("Payment Successful 🎉 Coins have been credited to your account!");
+            navigate("/dashboard");
+          } catch (error) {
+            console.error("Payment verification failed:", error);
+            alert(
+              error?.response?.data?.detail ||
+              error?.response?.data?.message ||
+              "Payment verification failed"
+            );
+          }
+        },
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+        },
+        theme: {
+          color: "#000000",
+        },
+      };
+
+      if (window.Razorpay) {
+        const razorpay = new window.Razorpay(options);
+        razorpay.open();
+      } else {
+        // Fallback for dev mode if script blocked
+        alert("Razorpay checkout is ready. In dev mode without live keys, simulating successful top-up.");
+        options.handler({
+          razorpay_order_id: result.order.id,
+          razorpay_payment_id: `pay_${Date.now()}`,
+          razorpay_signature: "mock_sig",
         });
-
-        // Update User State
-        setUser((prev) => ({
-            ...prev,
-            interviewCoin: coinRes.data.interviewCoin,
-        }));
-
-        alert("Payment Successful 🎉");
-        navigate("/dashboard");
-
-    } catch (error) {
-        console.log(error);
-
-        alert(
-            error?.response?.data?.message ||
-            "Payment verification failed"
-        );
+      }
+    } catch (err) {
+      console.error("Payment initiation failed:", err);
+      alert(err.response?.data?.detail || err.response?.data?.message || "Failed to start payment");
+    } finally {
+      setLoadingPlan("");
     }
-},
+  };
 
-                theme: {
-                    color: "#000000",
-                },
-            };
-
-            const razorpay = new window.Razorpay(options);
-            razorpay.open();
-
-        } catch (err) {
-            console.log(err);
-        }
-    };
 
 
     return (

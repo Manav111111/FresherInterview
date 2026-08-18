@@ -1,28 +1,24 @@
 import { signInWithPopup } from "firebase/auth";
-import axios from "axios";
 import { auth, provider } from "../utils/firebase";
 import { FcGoogle } from "react-icons/fc";
 import { FiX } from "react-icons/fi";
-import { BiBrain } from "react-icons/bi";
-import { SiKaios } from "react-icons/si";
-import api from "../utils/axios";
+import { loginWithFirebaseToken } from "../api/user.api";
 
 export function LoginModal({ onClose, setUser }) {
-
   const handleGoogleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, provider);
       const token = await result.user.getIdToken();
-      const response = await api.post(
-       "/api/auth/login",
-        { token }
-      );
-      setUser(response.data.user);
+      const response = await loginWithFirebaseToken(token);
+      if (response?.user) {
+        setUser(response.user);
+      }
       onClose();
     } catch (error) {
-      console.log(error);
+      console.error("Authentication failed:", error);
     }
   };
+
 
   return (
     <div className="

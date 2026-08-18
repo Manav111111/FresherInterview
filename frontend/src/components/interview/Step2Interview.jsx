@@ -204,11 +204,12 @@ function Step2Interview({ interviewData, user }) {
       await speakText("Time is up. Submitting your answer now.");
       const finalAnswer = answer.trim() || "No answer provided. Time over.";
 
+      try {
         setLoading(true);
         const res = await submitAnswer({ interviewId: interviewData.interviewId, answer: finalAnswer });
-          
+
         if (res.completed) {
-          setFeedback(res.feedback);
+          setFeedback(res.feedback || null);
           await new Promise((r) => setTimeout(r, 700));
           await speakText(
             res.feedback?.feedback ||
@@ -229,9 +230,14 @@ function Step2Interview({ interviewData, user }) {
         setLoading(false);
         setQuestion(res.question);
         setCurrentIndex(res.currentQuestion);
+        setTimeLeft(res.question?.timer || 60);
+        setTimerActive(true);
         setAnswer("");
         setFeedback(null);
-      
+      } catch (err) {
+        console.error("Auto submit failed:", err);
+        setLoading(false);
+      }
     };
     autoSubmit();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,14 +245,15 @@ function Step2Interview({ interviewData, user }) {
 
   // ── Submit ──
   const submit = async () => {
-    if (!answer.trim()) return;
-   
-      setTimerActive(false); // stop the countdown as soon as the answer is submitted
+    if (!answer.trim() || loading) return;
+
+    try {
+      setTimerActive(false); // stop countdown
       setLoading(true);
-      const res = await submitAnswer({ interviewId: interviewData.interviewId, answer })
-       
+      const res = await submitAnswer({ interviewId: interviewData.interviewId, answer: answer.trim() });
+
       if (res.completed) {
-        setFeedback(res.feedback);
+        setFeedback(res.feedback || null);
         await new Promise((r) => setTimeout(r, 700));
         await speakText(
           res.feedback?.feedback ||
@@ -263,13 +270,22 @@ function Step2Interview({ interviewData, user }) {
         res.feedback?.feedback ||
         "Noted your answer. Let's move to the next question."
       );
+
       setLoading(false);
       setQuestion(res.question);
       setCurrentIndex(res.currentQuestion);
+      setTimeLeft(res.question?.timer || 60);
+      setTimerActive(true);
       setAnswer("");
       setFeedback(null);
-    
+    } catch (err) {
+      console.error("Submit failed:", err);
+      alert(err.response?.data?.detail || err.response?.data?.message || "Failed to submit answer. Please try again.");
+      setLoading(false);
+      setTimerActive(true);
+    }
   };
+
 
   // ── Code editor → append to answer ──
   const handleCodeSubmit = (code) => {

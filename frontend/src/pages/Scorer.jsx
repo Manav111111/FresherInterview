@@ -7,10 +7,9 @@ import {
   FiAlertCircle, FiTrendingUp, FiUser, FiZap
 } from "react-icons/fi";
 import { RadialBarChart, RadialBar, PolarAngleAxis } from "recharts";
-import { getResume } from "../api/resume.api";
+import { getResume, uploadResume as apiUploadResume } from "../api/resume.api";
 import { setResume } from "../redux/resumeSlice";
 
-import api from "../utils/axios";
 import { useCoins } from "../api/user.api";
 
 // ─── Score Ring ──────────────────────────────────────────────
@@ -38,7 +37,7 @@ function ScoreRing({ score }) {
 
       <div className="absolute flex flex-col items-center">
         <span className="text-lg font-bold text-white leading-none">{score}</span>
-        <span className="text-[9px] text-gray-200 mt-0.5">/ 100</span>
+        <span className="text-[10px] text-zinc-300">{label}</span>
       </div>
     </div>
   );
@@ -63,19 +62,23 @@ function Tag({ text, color }) {
 function Navbar({ label }) {
   const navigate = useNavigate();
   return (
-    <nav className="fixed inset-x-0 top-0 z-20 border-b border-black/8 bg-white/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-12 max-w-7xl items-center justify-between px-3 sm:px-5">
+    <nav className="fixed inset-x-0 top-0 z-40 border-b border-black/8 bg-white/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-11 sm:h-12 max-w-7xl items-center justify-between px-3 sm:px-5">
         <div
           onClick={() => navigate("/dashboard")}
           className="flex cursor-pointer items-center gap-1.5"
         >
-          <span className="text-sm font-extrabold sm:text-base text-[#0A0A0A]">
-            Fresher.AI
-          </span>
-          <span className="hidden rounded bg-black/5 px-1.5 py-0.5 text-[10px] text-black/50 sm:block">
+          <span className="text-sm sm:text-base font-extrabold text-[#0A0A0A]">Fresher.AI</span>
+          <span className="hidden sm:block rounded bg-black/5 px-1.5 py-0.5 text-[10px] text-black/50">
             {label}
           </span>
         </div>
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="text-[10px] text-black/60 hover:text-[#0A0A0A] px-2.5 py-1.5 rounded-lg border border-black/15 hover:border-black/30 transition-all"
+        >
+          Dashboard
+        </button>
       </div>
     </nav>
   );
@@ -90,33 +93,32 @@ export default function Scorer({setUser , user}) {
 
 
   const uploadResume = async () => {
-    if (!file) return alert("Please select a PDF");
+    if (!file) return alert("Please select a PDF resume to analyze");
     try {
       setLoading(true);
 
-      const coinResponse = await useCoins( { coins: 10, action: "resume-score" })
-      
-
-      setUser((prev) => ({
-        ...prev,
-        interviewCoin: coinResponse.interviewCoin,
-      }));
+      const coinResponse = await useCoins({ coins: 10, action: "resume-score" });
+      if (coinResponse?.interviewCoin !== undefined) {
+        setUser((prev) => ({
+          ...prev,
+          interviewCoin: coinResponse.interviewCoin,
+        }));
+      }
 
       const formData = new FormData();
       formData.append("resume", file);
-      const response = await api.post(
-        "/api/resume/upload",
-        formData,
-      );
-      dispatch(setResume(response.data.data));
-
+      const response = await apiUploadResume(formData);
+      if (response?.data) {
+        dispatch(setResume(response.data));
+      }
     } catch (err) {
-      alert(err.response?.data?.message || "Upload Failed");
-      console.log(err);
+      alert(err.response?.data?.detail || err.response?.data?.message || "Upload Failed");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
 
   // ── Step 2: Results ─────────────────────────────────────────
   if (resume) return (

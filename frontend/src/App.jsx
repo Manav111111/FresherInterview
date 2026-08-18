@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
-import axios from "axios";
 
 import Home from "./pages/Home";
 import Dashbord from "./pages/Dashbord";
-
 import Roadmap from "./pages/Roadmap";
 import Scorer from "./pages/Scorer";
 import ResumeBuilder from "./pages/ResumeBuilder";
@@ -12,47 +10,47 @@ import Pricing from "./pages/Pricing";
 import InterviewStart from "./pages/InterviewStart";
 import InterviewPage from "./pages/InterviewPage";
 import InterviewReport from "./pages/InterviewReport";
-import api from "./utils/axios";
 import { getCurrentUser } from "./api/user.api";
 import { setResume } from "./redux/resumeSlice";
 import { getResume } from "./api/resume.api";
 import { useDispatch } from "react-redux";
 
-
-
-
 function App() {
-
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const dispatch = useDispatch()
+  const dispatch = useDispatch();
 
   useEffect(() => {
-
-   const getUser = async () => {
-    const data = await getCurrentUser()
-    setUser(data?.user)
-
-    setLoading(false)
-
-   }
-   getUser()
-
-  
-
+    const getUser = async () => {
+      try {
+        const data = await getCurrentUser();
+        if (data?.user) {
+          setUser(data.user);
+        }
+      } catch (err) {
+        console.warn("Session check complete:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getUser();
   }, []);
 
-  useEffect(()=>{
-     const fetchResume = async () => {
-        
-           const response = await getResume();
-           dispatch(setResume(response.data));
-         
-       };
+  useEffect(() => {
+    const fetchResume = async () => {
+      try {
+        const response = await getResume();
+        if (response?.data) {
+          dispatch(setResume(response.data));
+        }
+      } catch (err) {
+        console.warn("No active resume stored yet:", err);
+      }
+    };
 
-   
-   fetchResume()
-  },[])
+    fetchResume();
+  }, [dispatch]);
+
 
 
 
