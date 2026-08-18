@@ -1,7 +1,7 @@
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../utils/firebase";
 import { FcGoogle } from "react-icons/fc";
-import { FiX } from "react-icons/fi";
+import { FiX, FiZap } from "react-icons/fi";
 import { loginWithFirebaseToken } from "../api/user.api";
 
 export function LoginModal({ onClose, setUser }) {
@@ -15,10 +15,22 @@ export function LoginModal({ onClose, setUser }) {
       }
       onClose();
     } catch (error) {
-      console.error("Authentication failed:", error);
+      console.error("Google authentication failed:", error);
+      alert("Google sign-in was closed or Firebase credentials are not yet set up. You can also click 'Instant Demo Access' to test immediately!");
     }
   };
 
+  const handleDemoLogin = async () => {
+    try {
+      const response = await loginWithFirebaseToken("demo-candidate-token");
+      if (response?.user) {
+        setUser(response.user);
+      }
+      onClose();
+    } catch (error) {
+      console.error("Demo login error:", error);
+    }
+  };
 
   return (
     <div className="
@@ -27,7 +39,6 @@ export function LoginModal({ onClose, setUser }) {
       bg-black/40 backdrop-blur-md
       px-4
     ">
-
       <div className="
         relative w-full max-w-sm
         bg-[#0A0A0A]/80 backdrop-blur-2xl
@@ -36,13 +47,11 @@ export function LoginModal({ onClose, setUser }) {
         overflow-hidden
         shadow-[0_8px_32px_rgba(0,0,0,0.25)]
       ">
-
         {/* glass sheen */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-transparent to-transparent pointer-events-none" />
 
         {/* Header */}
         <div className="relative p-7">
-
           <button
             onClick={onClose}
             className="
@@ -72,11 +81,12 @@ export function LoginModal({ onClose, setUser }) {
             text-center
             text-xs
           ">
-            Continue your AI interview journey
+            Accelerate your career with AI mock interviews
           </p>
 
-          {/* Google */}
-          <div className="mt-7">
+          {/* Action Buttons */}
+          <div className="mt-6 space-y-3">
+            {/* Google OAuth */}
             <button
               onClick={handleGoogleLogin}
               className="
@@ -97,8 +107,28 @@ export function LoginModal({ onClose, setUser }) {
                 Continue with Google
               </span>
             </button>
-          </div>
 
+            {/* Instant Demo Access Button */}
+            <button
+              onClick={handleDemoLogin}
+              className="
+                w-full
+                flex items-center justify-center gap-2
+                py-2.5
+                rounded-xl
+                border border-purple-500/30
+                bg-purple-600/20 backdrop-blur-md
+                hover:bg-purple-600/30 hover:border-purple-500/50
+                shadow-inner
+                transition-all
+              "
+            >
+              <FiZap className="text-purple-400" size={15} />
+              <span className="text-purple-200 font-medium text-xs">
+                Instant Demo / Local Test Access
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Bottom */}
@@ -110,11 +140,10 @@ export function LoginModal({ onClose, setUser }) {
           text-center
         ">
           <p className="text-white/30 text-xs">
-            Secure authentication powered by Firebase
+            Powered by Firebase Auth & FastAPI
           </p>
         </div>
-
       </div>
     </div>
   );
-}
+}
