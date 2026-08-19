@@ -2,11 +2,15 @@ import React, { useRef } from "react";
 import { motion } from "motion/react";
 
 import {
-    FiArrowLeft,
+  FiArrowLeft,
   FiAward,
   FiTarget,
   FiTrendingUp,
+  FiBookOpen,
+  FiCheckCircle,
+  FiAlertCircle,
 } from "react-icons/fi";
+
 
 import DownloadButton from "../resume/DownloadButton";
 import { useNavigate } from "react-router-dom";
@@ -487,60 +491,89 @@ function Step3Report({
                     </div>
 
                     {/* AI Feedback */}
-
-                    <div className="mt-6 rounded-xl border border-green-500/20 bg-green-500/5 p-4.5">
-
-                      <p className="text-[11px] uppercase tracking-widest text-green-400">
-
-                        AI Feedback
-
+                    <div className="mt-6 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4.5">
+                      <p className="text-[11px] uppercase tracking-widest text-blue-400 font-semibold">
+                        AI Detailed Assessment
                       </p>
-
                       <p className="mt-2.5 text-sm leading-6 text-zinc-300">
-
-                        {item.feedback?.feedback ||
-                          "No feedback available."}
-
+                        {item.feedback?.feedback || "Evaluation complete."}
                       </p>
+                    </div>
 
+                    {/* Ideal / Correct Answer from AI */}
+                    {(item.feedback?.idealAnswer || item.feedback?.correctAnswer) && (
+                      <div className="mt-5 rounded-xl border border-purple-500/30 bg-purple-500/10 p-4.5">
+                        <div className="flex items-center gap-2 text-purple-300 font-semibold text-xs uppercase tracking-wider">
+                          <FiBookOpen size={14} />
+                          <span>Ideal Model Answer (Best Response)</span>
+                        </div>
+                        <p className="mt-2.5 text-sm leading-relaxed text-purple-100/90 font-mono bg-black/40 p-3.5 rounded-lg border border-purple-500/20">
+                          {item.feedback.idealAnswer || item.feedback.correctAnswer}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Key Points Covered & Missed */}
+                    <div className="grid md:grid-cols-2 gap-4 mt-5">
+                      {/* Key Points Covered */}
+                      {item.feedback?.keyPointsCovered?.length > 0 && (
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                          <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+                            <FiCheckCircle size={14} />
+                            <span>What You Got Right</span>
+                          </div>
+                          <ul className="mt-2.5 space-y-1.5">
+                            {item.feedback.keyPointsCovered.map((point, pIdx) => (
+                              <li key={pIdx} className="text-xs text-zinc-300 flex items-start gap-2">
+                                <span className="text-emerald-400 mt-0.5">✓</span>
+                                <span>{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Key Points Missed */}
+                      {item.feedback?.keyPointsMissed?.length > 0 && (
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                          <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold uppercase tracking-wider">
+                            <FiAlertCircle size={14} />
+                            <span>Key Concepts Missed</span>
+                          </div>
+                          <ul className="mt-2.5 space-y-1.5">
+                            {item.feedback.keyPointsMissed.map((point, mIdx) => (
+                              <li key={mIdx} className="text-xs text-zinc-300 flex items-start gap-2">
+                                <span className="text-amber-400 mt-0.5">⚠</span>
+                                <span>{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
 
                     {/* Improvements */}
-
                     {item.feedback?.improvements?.length > 0 && (
-
-                      <div className="mt-6">
-
-                        <h5 className="text-sm font-semibold text-white">
-
-                          Suggested Improvements
-
+                      <div className="mt-5">
+                        <h5 className="text-xs uppercase tracking-wider font-semibold text-zinc-400">
+                          Actionable Improvement Steps
                         </h5>
-
-                        <div className="mt-3.5 space-y-2.5">
-
+                        <div className="mt-2.5 space-y-2">
                           {item.feedback.improvements.map((tip, i) => (
-
                             <div
                               key={i}
-                              className="rounded-lg border border-white/10 bg-white/[0.03] p-3.5"
+                              className="rounded-lg border border-white/10 bg-white/[0.03] p-3 flex items-start gap-2.5"
                             >
-
-                              <p className="text-sm text-zinc-300">
-
-                                • {tip}
-
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 flex-shrink-0" />
+                              <p className="text-xs text-zinc-300 leading-relaxed">
+                                {tip}
                               </p>
-
                             </div>
-
                           ))}
-
                         </div>
-
                       </div>
-
                     )}
+
 
                   </motion.div>
 

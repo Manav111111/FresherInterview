@@ -28,4 +28,18 @@ export const uploadResume = async (formData) => {
     console.error("Resume upload failed:", error.response?.data || error.message);
     throw error;
   }
-};
+};
+
+/**
+ * Analyze structured resume builder JSON with AI ATS Analyzer
+ */
+export const analyzeResumeData = async (data) => {
+  try {
+    const response = await api.post("/api/resume/analyze-data", { data });
+    return response.data;
+  } catch (error) {
+    console.error("Resume analysis failed:", error.response?.data || error.message);
+    throw error;
+  }
+};
+

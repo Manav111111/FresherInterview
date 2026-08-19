@@ -165,3 +165,58 @@ async def analyze_resume(resume_text: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error during AI resume analysis ({e}). Falling back to heuristic extraction.")
         return _fallback_resume_analysis(resume_text)
+
+
+async def analyze_resume_data(resume_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Analyzes structured resume builder JSON with Groq LLM to produce deep ATS feedback,
+    scores, strong points, weaknesses, and optimization suggestions.
+    """
+    personal = resume_data.get("personal", {})
+    name = personal.get("name") or resume_data.get("name", "Candidate")
+    email = personal.get("email") or resume_data.get("email", "")
+    phone = personal.get("phone") or resume_data.get("phone", "")
+    summary = resume_data.get("summary", "")
+    skills = resume_data.get("skills", [])
+    if isinstance(skills, list):
+        skills_str = ", ".join([s if isinstance(s, str) else s.get("name", "") for s in skills if s])
+    else:
+        skills_str = str(skills)
+
+    exp_list = resume_data.get("experience", [])
+    exp_str = "\n".join([
+        f"- {e.get('title', '')} at {e.get('company', '')} ({e.get('startDate', '')} - {e.get('endDate', '')}): {e.get('description', '')}"
+        for e in exp_list if isinstance(e, dict)
+    ])
+
+    proj_list = resume_data.get("projects", [])
+    proj_str = "\n".join([
+        f"- {p.get('title', '')}: {p.get('description', '')} (Tech: {p.get('technologies', '')})"
+        for p in proj_list if isinstance(p, dict)
+    ])
+
+    edu_list = resume_data.get("education", [])
+    edu_str = "\n".join([
+        f"- {ed.get('degree', '')} from {ed.get('institution', '')} ({ed.get('year', '')})"
+        for ed in edu_list if isinstance(ed, dict)
+    ])
+
+    resume_text = f"""
+Candidate: {name}
+Email: {email} | Phone: {phone}
+Summary: {summary}
+
+Skills:
+{skills_str}
+
+Experience:
+{exp_str}
+
+Projects:
+{proj_str}
+
+Education:
+{edu_str}
+"""
+    return await analyze_resume(resume_text)
+

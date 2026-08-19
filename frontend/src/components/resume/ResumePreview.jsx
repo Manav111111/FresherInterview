@@ -1,11 +1,32 @@
-import { FiArrowLeft } from "react-icons/fi";
+import { FiArrowLeft, FiZap } from "react-icons/fi";
 import { useState, useEffect, useRef } from "react";
 import DownloadButton from "./DownloadButton";
 import ATSTemplate from "./ATSTemplate";
+import AIResumeReviewModal from "./AIResumeReviewModal";
+import { analyzeResumeData } from "../../api/resume.api";
 
 export default function ResumePreview({ data, onBack , user , setUser }) {
   const resumeRef = useRef(null);
   const [scale, setScale] = useState(1);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+
+  const handleAIReview = async () => {
+    setReviewModalOpen(true);
+    setReviewLoading(true);
+    try {
+      const res = await analyzeResumeData(data);
+      if (res?.data) {
+        setAnalysis(res.data);
+      }
+    } catch (err) {
+      console.error("AI Review failed:", err);
+      alert("Failed to analyze resume with AI. Please try again.");
+    } finally {
+      setReviewLoading(false);
+    }
+  };
 
 useEffect(() => {
   const updateScale = () => {
@@ -30,6 +51,12 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-white text-[#0A0A0A]">
+      <AIResumeReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        loading={reviewLoading}
+        analysis={analysis}
+      />
 
       {/* Header */}
       <div className="sticky top-0 z-20 border-b border-black/8 bg-white/80 backdrop-blur-xl">
@@ -42,32 +69,41 @@ useEffect(() => {
             </h1>
 
             <p className="mt-0.5 text-[10px] text-gray-400 sm:text-xs">
-              Review your resume before downloading
+              Review your resume and analyze ATS readiness before downloading
             </p>
           </div>
 
           {/* Right */}
           <div className="flex items-center justify-between lg:justify-end gap-2.5">
+            <button
+              onClick={handleAIReview}
+              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 sm:px-3 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 transition"
+            >
+              <FiZap size={14} className="text-purple-600" />
+              <span>AI ATS Review</span>
+            </button>
 
             <button
               onClick={onBack}
               className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-black/15 px-2.5 sm:px-3 text-xs text-black/60 transition hover:border-black/35 hover:text-[#0A0A0A]"
             >
               <FiArrowLeft size={15} />
- 
+
               <span className="hidden sm:block">
                 Back to Edit
               </span>
             </button>
 
-            <DownloadButton resumeRef={resumeRef}  resumeRef={resumeRef}
-    user={user}
-    setUser={setUser} />
-
+            <DownloadButton
+              resumeRef={resumeRef}
+              user={user}
+              setUser={setUser}
+            />
           </div>
 
         </div>
       </div>
+
 
       {/* Resume */}
       <div className="overflow-auto bg-[#F8F9FA] px-3 py-4 sm:px-6 sm:py-8">

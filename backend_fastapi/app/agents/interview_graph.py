@@ -94,35 +94,59 @@ Example format:
 
 def get_feedback_prompt(question: str, answer: str, difficulty: str) -> str:
     return f"""
-You are a Senior Interviewer with 15+ years of experience.
-Evaluate the candidate's answer naturally, honestly, and professionally like a real live interviewer.
+You are an Elite Technical and HR Hiring Bar-Raiser Interviewer with 15+ years of experience.
+Critically, accurately, and thoroughly evaluate the candidate's answer for the question below.
 
 Question: {question}
 Candidate Answer: {answer}
 Difficulty: {difficulty}
 
-Evaluate criteria on a 0-100 scale:
-- correctness, clarity, relevance, detail, efficiency, communication, problemSolving, creativity, score (overall)
-- feedback (1-2 sentences maximum, natural human tone, no robotic language)
-- improvements (exactly 3 short actionable bullet points, < 10 words each)
+EVALUATION CRITERIA:
+1. "score" (0-100): Score based strictly on technical correctness, conceptual depth, completeness, and accuracy.
+   - Blank, nonsensical, or "I don't know" answers: 0 to 25.
+   - Vague or incomplete surface-level answers: 40 to 65.
+   - Solid, mostly accurate answers: 70 to 82.
+   - Comprehensive, senior-level, structured answers with nuance and edge cases: 85 to 98.
+2. "correctness" (0-100): Accuracy of technical claims, logic, and factual statements.
+3. "clarity" (0-100): How clearly, concisely, and effectively the candidate structured their thoughts.
+4. "relevance" (0-100): How directly the answer addresses what was asked.
+5. "detail" (0-100): Technical depth, specific terminology, and nuance.
+6. "efficiency" (0-100): Directness, avoiding unnecessary fluff.
+7. "communication" (0-100): Articulation, clarity, and professional tone.
+8. "problemSolving" (0-100): Structured problem-solving mindset and trade-off considerations.
+9. "creativity" (0-100): Insightful edge-cases, optimization insights, or alternative solutions.
+10. "idealAnswer": Detailed, professional, comprehensive model answer (4-6 sentences or code snippet) demonstrating what an ideal candidate should answer.
+11. "keyPointsCovered": Array of strings (2-4 bullet points) noting specific concepts or points the candidate successfully mentioned.
+12. "keyPointsMissed": Array of strings (2-4 bullet points) noting crucial concepts, edge cases, or architecture details the candidate omitted.
+13. "feedback": Direct, honest, and constructive critique (2-3 sentences).
+14. "improvements": Exactly 3 actionable bullet points to improve the answer.
 
-Return ONLY valid JSON.
+Return ONLY valid JSON (no markdown fences, no extra text).
 Example format:
 {{
-  "score": 85,
-  "correctness": 88,
-  "clarity": 85,
-  "relevance": 90,
+  "score": 82,
+  "correctness": 85,
+  "clarity": 84,
+  "relevance": 88,
   "detail": 80,
   "efficiency": 82,
-  "communication": 86,
-  "problemSolving": 84,
+  "communication": 85,
+  "problemSolving": 83,
   "creativity": 78,
-  "feedback": "Great explanation with clear fundamentals. Adding a concrete production example would make it stand out.",
+  "idealAnswer": "To optimize database queries under heavy read loads, we should first implement database indexing on frequently queried columns, set up read replicas to distribute query traffic, utilize caching layers like Redis with appropriate TTLs, and use database connection pooling alongside query profiling with EXPLAIN ANALYZE.",
+  "keyPointsCovered": [
+    "Mentioned database indexing on key lookup fields",
+    "Suggested caching frequently accessed results"
+  ],
+  "keyPointsMissed": [
+    "Did not mention read replica distribution or connection pooling",
+    "Omitted database query profiling and execution plan analysis"
+  ],
+  "feedback": "Good fundamental understanding of caching and indexing. To demonstrate senior-level mastery, discuss read replication architecture, cache invalidation strategies, and connection pooling.",
   "improvements": [
-    "Include real-world examples.",
-    "Mention performance trade-offs.",
-    "Be slightly more structured."
+    "Discuss read replica distribution for scaling high-throughput query loads.",
+    "Explain cache invalidation mechanisms (e.g. Cache-Aside or Write-Through).",
+    "Use EXPLAIN ANALYZE to identify slow table scans and optimize indexes."
   ]
 }}
 """
@@ -139,7 +163,7 @@ Questions & Answers:
 {json.dumps(questions, indent=2)}
 
 RULES:
-1. Overall score between 0-100.
+1. Overall score between 0-100 based on the average quality and depth of answers.
 2. Summary: 80-120 words summarizing performance, strengths, and areas for growth.
 3. Strengths: 3-5 bullet points.
 4. Weaknesses: 3-5 bullet points.
@@ -149,22 +173,22 @@ RULES:
 Example format:
 {{
   "overallScore": 82,
-  "summary": "The candidate demonstrated solid software engineering fundamentals with clear communication across questions. They showed strong technical clarity but need deeper preparation on distributed systems architecture.",
+  "summary": "The candidate demonstrated solid software engineering fundamentals with clear communication across questions. They showed strong technical clarity but need deeper preparation on distributed systems architecture and system resilience.",
   "strengths": [
-    "Clear conceptual articulation",
-    "Strong understanding of core REST and database concepts",
-    "Positive problem-solving attitude"
+    "Clear conceptual articulation and structured thinking",
+    "Solid understanding of core REST APIs and database patterns",
+    "Positive problem-solving approach"
   ],
   "weaknesses": [
-    "Lacked depth in distributed caching edge cases",
-    "Could provide more quantified examples"
+    "Lacked depth in distributed caching and query optimization",
+    "Could provide more quantified production metrics"
   ],
   "recommendations": [
-    "Practice system design for large-scale architectures",
-    "Deep-dive into caching strategies and invalidation",
-    "Review concurrency and multithreading concepts",
-    "Solve algorithmic problems under timed conditions",
-    "Structure answers with the STAR method"
+    "Practice system design for large-scale distributed architectures",
+    "Deep-dive into caching strategies and cache invalidation patterns",
+    "Review concurrency, database isolation levels, and transactions",
+    "Solve algorithmic problem-solving drills under timed constraints",
+    "Structure behavioral answers using the STAR method"
   ]
 }}
 """
@@ -177,44 +201,88 @@ Example format:
 def _fallback_questions(role: str, interview_type: str) -> List[Dict[str, Any]]:
     if interview_type.lower() == "hr":
         return [
-            {"question": f"Can you introduce yourself and explain why you want to work as a {role}?", "difficulty": "easy", "timer": 90},
-            {"question": "What are your greatest technical and professional strengths?", "difficulty": "easy", "timer": 90},
-            {"question": "Describe a difficult challenge you encountered on a project and how you solved it.", "difficulty": "medium", "timer": 120},
-            {"question": "How do you manage deadlines and prioritize tasks under high pressure?", "difficulty": "hard", "timer": 120},
-            {"question": "Tell me about a time you had a disagreement with a team member and how you handled it.", "difficulty": "hard", "timer": 150},
-            {"question": "Where do you see your career advancing in the next 3 to 5 years?", "difficulty": "hard", "timer": 120},
+            {"question": f"Can you introduce yourself and explain what motivates you to excel as a {role}?", "difficulty": "easy", "timer": 90},
+            {"question": "What are your greatest technical and professional strengths, and how have they helped you in past projects?", "difficulty": "easy", "timer": 90},
+            {"question": "Describe a difficult challenge or bug you encountered on a project and how you systematically solved it.", "difficulty": "medium", "timer": 120},
+            {"question": "How do you manage competing deadlines and prioritize tasks when working under high pressure?", "difficulty": "hard", "timer": 120},
+            {"question": "Tell me about a time you had a technical disagreement with a team member and how you resolved it constructively.", "difficulty": "hard", "timer": 150},
+            {"question": "Where do you see your career advancing in the next 3 to 5 years, and how does this role fit your vision?", "difficulty": "hard", "timer": 120},
         ]
     else:
         return [
-            {"question": f"Explain the core architectural concepts of building scalable applications as a {role}.", "difficulty": "easy", "timer": 90},
-            {"question": "What is the difference between SQL and NoSQL databases, and when would you choose each?", "difficulty": "easy", "timer": 90},
-            {"question": "How do you handle API authentication, rate limiting, and session security?", "difficulty": "medium", "timer": 120},
-            {"question": "Explain how caching (e.g., Redis) improves system performance and how you handle cache invalidation.", "difficulty": "hard", "timer": 150},
-            {"question": "How would you design a resilient microservice system with asynchronous background job processing?", "difficulty": "hard", "timer": 180},
-            {"question": "Describe your strategy for debugging a production latency spike and identifying bottlenecks.", "difficulty": "hard", "timer": 150},
+            {"question": f"Explain the core architectural concepts of building scalable, fault-tolerant web applications as a {role}.", "difficulty": "easy", "timer": 90},
+            {"question": "What is the difference between SQL and NoSQL databases, and what criteria do you use to choose between them?", "difficulty": "easy", "timer": 90},
+            {"question": "How do you implement secure API authentication, session management, and rate limiting in production?", "difficulty": "medium", "timer": 120},
+            {"question": "Explain how caching (e.g., Redis) improves system latency and what strategies you use for cache invalidation.", "difficulty": "hard", "timer": 150},
+            {"question": "How would you design a resilient microservice system with asynchronous background job processing and message queues?", "difficulty": "hard", "timer": 180},
+            {"question": "Describe your step-by-step strategy for debugging a production latency spike and identifying bottlenecks.", "difficulty": "hard", "timer": 150},
         ]
 
 
 def _fallback_feedback(question: str, answer: str) -> Dict[str, Any]:
-    length_bonus = min(20, len(answer.split()) // 3)
-    base_score = min(92, max(60, 70 + length_bonus))
+    ans_clean = (answer or "").strip()
+    words = ans_clean.split()
+    word_count = len(words)
+
+    # Detect blank or non-answers
+    if word_count < 5 or any(phrase in ans_clean.lower() for phrase in ["don't know", "dont know", "no idea", "skip", "idk", "no answer"]):
+        return {
+            "score": 25,
+            "correctness": 20,
+            "clarity": 30,
+            "relevance": 25,
+            "detail": 15,
+            "efficiency": 40,
+            "communication": 30,
+            "problemSolving": 20,
+            "creativity": 20,
+            "idealAnswer": f"An ideal answer for this question directly explains the key technical principles, architecture patterns, and practical trade-offs involved in '{question}'. It provides specific examples, explains 'why' a particular solution is chosen, and mentions performance/security implications.",
+            "keyPointsCovered": [],
+            "keyPointsMissed": [
+                "Did not provide an explanation of core concepts",
+                "Omitted technical details and architecture patterns",
+                "Lacked concrete examples or trade-offs"
+            ],
+            "feedback": "The response was incomplete or did not address the core question. Make sure to attempt every question by structuring your thoughts and explaining fundamental concepts even if you are unsure of the advanced details.",
+            "improvements": [
+                "Break down the question into key components before answering.",
+                "Explain the theoretical fundamentals if you don't know the exact syntax.",
+                "Use the STAR method to structure your response."
+            ]
+        }
+
+    # Evaluate answer content
+    tech_keywords = ["database", "cache", "redis", "scale", "api", "async", "index", "performance", "security", "token", "query", "service", "queue", "architecture"]
+    matches = sum(1 for kw in tech_keywords if kw in ans_clean.lower())
+    base_score = min(92, max(55, 60 + matches * 5 + min(15, word_count // 6)))
+
     return {
         "score": base_score,
-        "correctness": min(95, base_score + 2),
+        "correctness": min(95, base_score + 3),
         "clarity": min(95, base_score + 1),
-        "relevance": min(95, base_score + 3),
-        "detail": base_score - 2,
+        "relevance": min(95, base_score + 4),
+        "detail": min(95, base_score - 2),
         "efficiency": base_score,
         "communication": min(95, base_score + 2),
         "problemSolving": base_score,
-        "creativity": base_score - 4,
-        "feedback": "Solid answer with good technical grounding. Adding specific real-world metrics would make it even more compelling.",
+        "creativity": min(95, base_score - 3),
+        "idealAnswer": f"To master '{question}', an exceptional candidate outlines the high-level architecture, explains the core mechanism clearly, provides a concrete implementation example, and discusses trade-offs such as latency vs throughput, security constraints, and caching strategies.",
+        "keyPointsCovered": [
+            "Addressed the core premise of the question",
+            "Demonstrated foundational understanding of the concept"
+        ],
+        "keyPointsMissed": [
+            "Could expand on edge cases and failure handling",
+            "Omitted performance benchmarking metrics"
+        ],
+        "feedback": "Solid answer with good technical grounding. Adding specific real-world metrics, architecture trade-offs, and failure recovery examples will make your response even stronger.",
         "improvements": [
-            "Provide concrete examples from past projects.",
-            "Discuss potential trade-offs and edge cases.",
-            "Maintain a structured, concise response flow."
+            "Quantify your results with specific metrics (e.g. 'reduced latency by 35%').",
+            "Discuss potential trade-offs and edge-case handling.",
+            "Structure your technical answers with clear step-by-step logic."
         ]
     }
+
 
 
 def _fallback_summary(role: str, questions: List[Dict[str, Any]]) -> Dict[str, Any]:

@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiEye } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiEye, FiZap } from "react-icons/fi";
 import ResumePreview from "../components/resume/ResumePreview";
 import ResumeForm from "../components/resume/ResumeForm";
 import initialData from "../components/resume/initialData";
+import AIResumeReviewModal from "../components/resume/AIResumeReviewModal";
+import { analyzeResumeData } from "../api/resume.api";
 import { useNavigate } from "react-router-dom";
 
 
@@ -22,8 +24,28 @@ export default function ResumeBuilder({user , setUser}) {
   const [data, setData] = useState(initialData);
   const [currentStep, setCurrentStep] = useState(1);
   const [showPreview, setShowPreview] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
 
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+
+  const handleAIReview = async () => {
+    setReviewModalOpen(true);
+    setReviewLoading(true);
+    try {
+      const res = await analyzeResumeData(data);
+      if (res?.data) {
+        setAnalysis(res.data);
+      }
+    } catch (err) {
+      console.error("AI Review failed:", err);
+      alert("Failed to analyze resume with AI. Please try again.");
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
   const goNext = () => {
     if (currentStep < TOTAL_STEPS) setCurrentStep(currentStep + 1);
   };
@@ -39,12 +61,18 @@ export default function ResumeBuilder({user , setUser}) {
 
   // ── Show Preview Page ──────────────────────────────────────────────────────
   if (showPreview) {
-    return <ResumePreview data={data} user={user} setUser={setUser}  onBack={() => setShowPreview(false)} />;
+    return <ResumePreview data={data} user={user} setUser={setUser} onBack={() => setShowPreview(false)} />;
   }
 
   // ── Show Form ──────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-white text-[#0A0A0A] flex flex-col">
+      <AIResumeReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        loading={reviewLoading}
+        analysis={analysis}
+      />
 
       {/* Navbar */}
       <nav className="sticky top-0 z-20 border-b border-black/8 bg-white/80 backdrop-blur-xl">
@@ -53,7 +81,6 @@ export default function ResumeBuilder({user , setUser}) {
             onClick={() => navigate("/dashboard")}
             className="flex cursor-pointer items-center gap-1.5"
           >
-            
             <span className="text-base font-extrabold tracking-tight">
               Fresher.AI
             </span>
@@ -63,15 +90,26 @@ export default function ResumeBuilder({user , setUser}) {
             </span>
           </div>
 
-          <button
-            onClick={() => setShowPreview(true)}
-            className="flex h-8 items-center justify-center gap-2 rounded-lg border border-black/15 text-black/60 transition px-2 hover:border-[#0A0A0A] hover:text-[#0A0A0A]"
-          >
-            <FiEye size={13} />
-            
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleAIReview}
+              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 text-xs font-semibold text-purple-700 hover:bg-purple-500/20 transition"
+            >
+              <FiZap size={13} className="text-purple-600" />
+              <span className="hidden sm:inline">AI ATS Review</span>
+            </button>
+
+            <button
+              onClick={() => setShowPreview(true)}
+              className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-black/15 text-black/60 transition px-2.5 hover:border-[#0A0A0A] hover:text-[#0A0A0A] text-xs font-medium"
+            >
+              <FiEye size={13} />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+          </div>
         </div>
       </nav>
+
 
       {/* Main Content */}
       <div className="flex-1 px-3 py-4 sm:px-6 sm:py-8">

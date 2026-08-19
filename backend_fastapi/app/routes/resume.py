@@ -1,9 +1,10 @@
 import json
 import logging
 from typing import Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from app.utils.pdf_extractor import extract_pdf_text
-from app.agents.resume_agent import analyze_resume
+from app.agents.resume_agent import analyze_resume, analyze_resume_data
 from app.core.security import get_current_user
 from app.core.db import get_supabase
 from app.core.redis import get_cache, set_cache
@@ -14,6 +15,11 @@ resume_router = APIRouter(tags=["Resume"])
 
 # In-memory store for development fallback
 _mock_resumes_db = {}
+
+
+class AnalyzeResumeDataRequest(BaseModel):
+    data: dict
+
 
 
 @resume_router.post("/upload")
@@ -195,3 +201,34 @@ async def get_user_resume(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Resume not found",
     )
+
+
+@resume_router.post("/analyze-data")
+async def analyze_builder_resume(
+    body: AnalyzeResumeDataRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Analyzes raw JSON resume data from the Resume Builder using Groq LLM,
+    evaluating ATS score, strengths, weaknesses, missing skills, and suggestions.
+    """
+    user_id = current_user.get("userId") or current_user.get("id")
+    if not body.data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Resume data object is required",
+        )
+
+    try:
+        analysis = await analyze_resume_data(body.data)
+        return {
+            "success": True,
+            "data": analysis,
+        }
+    except Exception as e:
+        logger.error(f"Resume data analysis failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AI Resume analysis failed: {str(e)}",
+        )
+
