@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { GiArtificialHive } from "react-icons/gi";
 import {
   FiFileText, FiMap, FiStar,
-  FiLogOut, FiPlus, FiSidebar,
+  FiLogOut, FiPlus, FiSidebar, FiVideo,
 } from "react-icons/fi";
 import { BsStars, BsPlusCircleFill } from "react-icons/bs";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -22,8 +22,13 @@ const NAV_ITEMS = [
     label: "Resume Scorer",
     path: "/scorer",
   },
- 
+  {
+    icon: <FiVideo size={15} />,
+    label: "Solution Video",
+    path: "/solution-video",
+  },
 ];
+
 
 export default function Sidebar({
   user,

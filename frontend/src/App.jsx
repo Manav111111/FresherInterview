@@ -10,7 +10,9 @@ import Pricing from "./pages/Pricing";
 import InterviewStart from "./pages/InterviewStart";
 import InterviewPage from "./pages/InterviewPage";
 import InterviewReport from "./pages/InterviewReport";
+import SolutionVideo from "./pages/SolutionVideo";
 import { getCurrentUser } from "./api/user.api";
+
 import { setResume } from "./redux/resumeSlice";
 import { getResume } from "./api/resume.api";
 import { useDispatch } from "react-redux";
@@ -145,8 +147,14 @@ function App() {
             : <Navigate to="/" replace />
         }
       />
-
-
+      <Route
+        path="/solution-video"
+        element={
+          user
+            ? <SolutionVideo user={user} setUser={setUser} />
+            : <Navigate to="/" replace />
+        }
+      />
 
     </Routes>
   );
