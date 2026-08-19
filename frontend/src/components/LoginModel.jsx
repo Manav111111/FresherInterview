@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../utils/firebase";
 import { FcGoogle } from "react-icons/fc";
@@ -5,8 +6,11 @@ import { FiX, FiZap } from "react-icons/fi";
 import { loginWithFirebaseToken } from "../api/user.api";
 
 export function LoginModal({ onClose, setUser }) {
+  const [loading, setLoading] = useState(false);
+
   const handleGoogleLogin = async () => {
     try {
+      setLoading(true);
       const result = await signInWithPopup(auth, provider);
       const token = await result.user.getIdToken();
       const response = await loginWithFirebaseToken(token);
@@ -16,12 +20,17 @@ export function LoginModal({ onClose, setUser }) {
       onClose();
     } catch (error) {
       console.error("Google authentication failed:", error);
-      alert("Google sign-in was closed or Firebase credentials are not yet set up. You can also click 'Instant Demo Access' to test immediately!");
+      if (error.code !== "auth/popup-closed-by-user") {
+        alert(error.message || "Google sign-in failed. Please ensure your domain is authorized in Firebase Console.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDemoLogin = async () => {
     try {
+      setLoading(true);
       const response = await loginWithFirebaseToken("demo-candidate-token");
       if (response?.user) {
         setUser(response.user);
@@ -29,8 +38,11 @@ export function LoginModal({ onClose, setUser }) {
       onClose();
     } catch (error) {
       console.error("Demo login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
+
 
   return (
     <div className="
@@ -89,6 +101,7 @@ export function LoginModal({ onClose, setUser }) {
             {/* Google OAuth */}
             <button
               onClick={handleGoogleLogin}
+              disabled={loading}
               className="
                 w-full
                 flex items-center justify-center gap-3
@@ -100,17 +113,19 @@ export function LoginModal({ onClose, setUser }) {
                 hover:bg-white/[0.14]
                 shadow-inner
                 transition-all
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
               <FcGoogle size={18} />
               <span className="text-white font-medium text-sm">
-                Continue with Google
+                {loading ? "Signing in..." : "Continue with Google"}
               </span>
             </button>
 
             {/* Instant Demo Access Button */}
             <button
               onClick={handleDemoLogin}
+              disabled={loading}
               className="
                 w-full
                 flex items-center justify-center gap-2
@@ -121,6 +136,7 @@ export function LoginModal({ onClose, setUser }) {
                 hover:bg-purple-600/30 hover:border-purple-500/50
                 shadow-inner
                 transition-all
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
               <FiZap className="text-purple-400" size={15} />
@@ -128,6 +144,7 @@ export function LoginModal({ onClose, setUser }) {
                 Instant Demo / Local Test Access
               </span>
             </button>
+
           </div>
         </div>
 
