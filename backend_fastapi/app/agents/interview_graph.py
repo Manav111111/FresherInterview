@@ -73,26 +73,30 @@ Candidate Skills: {skills}
 Candidate Projects: {projects}
 """
     return f"""
-You are a Senior Technical Interviewer.
-Generate realistic technical interview questions for the role: {role}
+You are an Elite Domain Expert & Senior Hiring Bar-Raiser with 15+ years of experience.
+Generate 6 realistic, highly tailored interview questions specifically for the exact role: {role}
 Resume Available: {"YES" if use_resume else "NO"}
 {resume_context}
 
 RULES:
-1. Generate EXACTLY 6 technical questions testing fundamentals, system design, coding problem-solving, and architecture.
+1. Generate EXACTLY 6 interview questions tailored specifically to the real-world tools, core competencies, workflows, strategies, and practical problem-solving required for a {role}.
+   - If the role is Creative/Content/Design/Media/Marketing: Ask about content strategy, storytelling, distribution algorithms, retention metrics, editing workflows, and analytics.
+   - If the role is Product/Operations/Business/Management: Ask about product roadmaps, go-to-market, growth KPIs, customer discovery, and prioritization.
+   - If the role is Engineering/Tech/DevOps/Data: Ask about architecture, clean code, database scaling, APIs, and debugging.
 2. Each object must contain ONLY: "question", "difficulty" (easy/medium/hard), "timer" (integer seconds 60-180).
 3. Difficulty order: Q1->easy, Q2->easy, Q3->medium, Q4->hard, Q5->hard, Q6->hard.
 4. Return ONLY valid JSON array. No markdown, no extra text.
 
 Example format:
 [
-  {{"question": "Explain the difference between synchronous and asynchronous execution.", "difficulty": "easy", "timer": 90}},
-  {{"question": "How would you optimize database queries under heavy read loads?", "difficulty": "medium", "timer": 120}}
+  {{"question": "How do you research, structure, and optimize your workflow when developing a new campaign or project?", "difficulty": "easy", "timer": 90}},
+  {{"question": "What key metrics or quality benchmarks do you prioritize to ensure impactful outcomes?", "difficulty": "medium", "timer": 120}}
 ]
 """
 
 
 def get_feedback_prompt(question: str, answer: str, difficulty: str) -> str:
+
     return f"""
 You are an Elite Technical and HR Hiring Bar-Raiser Interviewer with 15+ years of experience.
 Critically, accurately, and thoroughly evaluate the candidate's answer for the question below.
@@ -199,24 +203,48 @@ Example format:
 # ==========================================
 
 def _fallback_questions(role: str, interview_type: str) -> List[Dict[str, Any]]:
+    role_lower = role.lower()
     if interview_type.lower() == "hr":
         return [
             {"question": f"Can you introduce yourself and explain what motivates you to excel as a {role}?", "difficulty": "easy", "timer": 90},
-            {"question": "What are your greatest technical and professional strengths, and how have they helped you in past projects?", "difficulty": "easy", "timer": 90},
-            {"question": "Describe a difficult challenge or bug you encountered on a project and how you systematically solved it.", "difficulty": "medium", "timer": 120},
+            {"question": f"What are your greatest professional strengths, and how do they help you succeed as a {role}?", "difficulty": "easy", "timer": 90},
+            {"question": "Describe a difficult challenge or roadblock you encountered on a project and how you resolved it.", "difficulty": "medium", "timer": 120},
             {"question": "How do you manage competing deadlines and prioritize tasks when working under high pressure?", "difficulty": "hard", "timer": 120},
-            {"question": "Tell me about a time you had a technical disagreement with a team member and how you resolved it constructively.", "difficulty": "hard", "timer": 150},
+            {"question": "Tell me about a time you had a disagreement with a team member or stakeholder and how you handled it constructively.", "difficulty": "hard", "timer": 150},
             {"question": "Where do you see your career advancing in the next 3 to 5 years, and how does this role fit your vision?", "difficulty": "hard", "timer": 120},
         ]
+
+    # Creative / Content / Media / Design / Marketing
+    if any(k in role_lower for k in ["content", "maker", "creator", "media", "writer", "marketing", "designer", "ui", "ux", "video", "editor"]):
+        return [
+            {"question": f"How do you research, plan, and structure your creative process when producing new work as a {role}?", "difficulty": "easy", "timer": 90},
+            {"question": "What tools and workflows do you rely on to maintain consistent quality and output across projects?", "difficulty": "easy", "timer": 90},
+            {"question": "How do you balance creative storytelling with audience analytics and engagement metrics?", "difficulty": "medium", "timer": 120},
+            {"question": "Describe a campaign or piece of work where performance fell short of expectations. How did you diagnose and adapt?", "difficulty": "hard", "timer": 150},
+            {"question": "How do you optimize distribution across different platforms and stay ahead of algorithmic or audience trends?", "difficulty": "hard", "timer": 150},
+            {"question": "How do you handle tight turnarounds, creative burnout, and competing feedback from multiple stakeholders?", "difficulty": "hard", "timer": 120},
+        ]
+    # Product / Business / Operations / Management
+    elif any(k in role_lower for k in ["product", "manager", "operations", "business", "analyst", "scrum", "lead"]):
+        return [
+            {"question": f"How do you define success metrics and KPIs for a major initiative as a {role}?", "difficulty": "easy", "timer": 90},
+            {"question": "Walk me through how you prioritize competing features or backlog requests when resources are constrained.", "difficulty": "easy", "timer": 90},
+            {"question": "How do you incorporate user feedback and quantitative data into strategic decision-making?", "difficulty": "medium", "timer": 120},
+            {"question": "Describe a time you had to pivot a strategy midway through execution due to unforeseen market or team constraints.", "difficulty": "hard", "timer": 150},
+            {"question": "How do you align cross-functional teams (e.g., engineering, design, sales) around a unified vision?", "difficulty": "hard", "timer": 150},
+            {"question": "What is your approach to managing risk, technical debt, and long-term sustainability in your roadmap?", "difficulty": "hard", "timer": 120},
+        ]
+    # Technical / Software / Engineering / DevOps / Data
     else:
         return [
-            {"question": f"Explain the core architectural concepts of building scalable, fault-tolerant web applications as a {role}.", "difficulty": "easy", "timer": 90},
-            {"question": "What is the difference between SQL and NoSQL databases, and what criteria do you use to choose between them?", "difficulty": "easy", "timer": 90},
-            {"question": "How do you implement secure API authentication, session management, and rate limiting in production?", "difficulty": "medium", "timer": 120},
-            {"question": "Explain how caching (e.g., Redis) improves system latency and what strategies you use for cache invalidation.", "difficulty": "hard", "timer": 150},
-            {"question": "How would you design a resilient microservice system with asynchronous background job processing and message queues?", "difficulty": "hard", "timer": 180},
-            {"question": "Describe your step-by-step strategy for debugging a production latency spike and identifying bottlenecks.", "difficulty": "hard", "timer": 150},
+            {"question": f"Explain the core architectural concepts and best practices required when building scalable systems as a {role}.", "difficulty": "easy", "timer": 90},
+            {"question": f"What tools, libraries, and frameworks do you consider essential in your modern {role} development workflow?", "difficulty": "easy", "timer": 90},
+            {"question": "How do you approach debugging, performance optimization, and profiling when resolving complex production issues?", "difficulty": "medium", "timer": 120},
+            {"question": "How do you design systems with high availability, fault tolerance, and secure data handling?", "difficulty": "hard", "timer": 150},
+            {"question": "Describe a scenario where you had to refactor a legacy module or optimize an inefficient workflow under tight deadlines.", "difficulty": "hard", "timer": 150},
+            {"question": "How do you ensure thorough automated testing, CI/CD reliability, and production observability in your projects?", "difficulty": "hard", "timer": 150},
         ]
+
 
 
 def _fallback_feedback(question: str, answer: str) -> Dict[str, Any]:
