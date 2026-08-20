@@ -15,17 +15,19 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 
 import { setResume } from "../../redux/resumeSlice";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { startInterview } from "../../api/interview.api";
 import { uploadResume as apiUploadResume } from "../../api/resume.api";
 import { useCoins } from "../../api/user.api";
 
 function Step1SetUp({ user, setUser }) {
   const dispatch = useDispatch();
+  const location = useLocation();
   const { resume } = useSelector((state) => state.resume);
 
+  const initialType = location.state?.defaultType === "hr" ? "hr" : "technical";
   const [role, setRole]         = useState("");
-  const [type, setType]         = useState("technical");
+  const [type, setType]         = useState(initialType);
   const [useResume, setUseResume] = useState(!!resume);
   const [file, setFile]         = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -34,9 +36,18 @@ function Step1SetUp({ user, setUser }) {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (location.state?.defaultType === "hr") {
+      setType("hr");
+    } else if (location.state?.defaultType === "technical") {
+      setType("technical");
+    }
+  }, [location.state]);
+
+  useEffect(() => {
     setUseResume(!!resume);
     if (resume?.role) setRole(resume.role);
   }, [resume]);
+
 
   const uploadResume = async () => {
     if (!file) return;

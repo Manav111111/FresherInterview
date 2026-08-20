@@ -11,7 +11,9 @@ import InterviewStart from "./pages/InterviewStart";
 import InterviewPage from "./pages/InterviewPage";
 import InterviewReport from "./pages/InterviewReport";
 import SolutionVideo from "./pages/SolutionVideo";
+import Performance from "./pages/Performance";
 import { getCurrentUser } from "./api/user.api";
+
 
 import { setResume } from "./redux/resumeSlice";
 import { getResume } from "./api/resume.api";
@@ -85,6 +87,14 @@ function App() {
         }
       />
       <Route
+        path="/performance"
+        element={
+          user
+            ? <Performance user={user} setUser={setUser} />
+            : <Navigate to="/" replace />
+        }
+      />
+      <Route
         path="/interview"
         element={
           user
@@ -92,6 +102,7 @@ function App() {
             : <Navigate to="/" replace />
         }
       />
+
 
       <Route
         path="/interview/:id"
