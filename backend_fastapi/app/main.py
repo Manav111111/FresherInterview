@@ -43,14 +43,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS for Frontend (Vite on port 5173)
+# Configure CORS for Frontend (Vercel & Vite localhost)
+cors_origins = list(set(settings.cors_origin_list + [
+    "https://fresherai-silk.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
+    allow_origins=cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:.*|http://127\.0\.0\.1:.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
 
 
 @app.get("/", tags=["Health"])

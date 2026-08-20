@@ -3,7 +3,7 @@ import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../utils/firebase";
 import { FcGoogle } from "react-icons/fc";
 import { FiX, FiZap } from "react-icons/fi";
-import { loginWithFirebaseToken } from "../api/user.api";
+import { loginWithFirebaseToken, demoLoginUser } from "../api/user.api";
 
 export function LoginModal({ onClose, setUser }) {
   const [loading, setLoading] = useState(false);
@@ -21,7 +21,10 @@ export function LoginModal({ onClose, setUser }) {
     } catch (error) {
       console.error("Google authentication failed:", error);
       if (error.code !== "auth/popup-closed-by-user") {
-        alert(error.message || "Google sign-in failed. Please ensure your domain is authorized in Firebase Console.");
+        alert(
+          error.message ||
+            "Google sign-in failed. Please ensure 'fresherai-silk.vercel.app' is added to Authorized Domains in Firebase Console."
+        );
       }
     } finally {
       setLoading(false);
@@ -31,17 +34,19 @@ export function LoginModal({ onClose, setUser }) {
   const handleDemoLogin = async () => {
     try {
       setLoading(true);
-      const response = await loginWithFirebaseToken("demo-candidate-token");
+      const response = await demoLoginUser();
       if (response?.user) {
         setUser(response.user);
       }
       onClose();
     } catch (error) {
       console.error("Demo login error:", error);
+      alert("Demo login error: " + (error.response?.data?.detail || error.message));
     } finally {
       setLoading(false);
     }
   };
+
 
 
   return (

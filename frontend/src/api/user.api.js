@@ -19,10 +19,29 @@ export const getCurrentUser = async () => {
 export const loginWithFirebaseToken = async (token) => {
   try {
     const response = await api.post("/api/auth/login", { token });
+    if (response.data?.token) {
+      localStorage.setItem("fresherai_token", response.data.token);
+    }
     return response.data;
   } catch (error) {
     console.error("Login failed:", error.response?.data || error.message);
     throw error;
+  }
+};
+
+/**
+ * Instant Demo Login without third-party popups
+ */
+export const demoLoginUser = async () => {
+  try {
+    const response = await api.post("/api/auth/demo-login");
+    if (response.data?.token) {
+      localStorage.setItem("fresherai_token", response.data.token);
+    }
+    return response.data;
+  } catch (error) {
+    console.warn("Demo login API failed, attempting token fallback:", error);
+    return loginWithFirebaseToken("demo-candidate-token");
   }
 };
 
@@ -32,12 +51,15 @@ export const loginWithFirebaseToken = async (token) => {
 export const logoutUser = async () => {
   try {
     const response = await api.get("/api/auth/logout");
+    localStorage.removeItem("fresherai_token");
     return response.data;
   } catch (error) {
     console.error("Logout error:", error.response?.data || error.message);
+    localStorage.removeItem("fresherai_token");
     return { success: false };
   }
 };
+
 
 /**
  * Deduct coins for an action (e.g. resume-score: 10, roadmap: 20, interview: 50)

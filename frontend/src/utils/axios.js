@@ -8,5 +8,14 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("fresherai_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+    config.headers["x-session-token"] = token;
+  }
+  return config;
+});
 
-export default api;
+export default api;
+

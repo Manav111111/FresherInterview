@@ -19,7 +19,7 @@ _mock_users_db = {}
 
 
 @auth_router.post("/login")
-async def login(body: LoginRequest, response: Response):
+async def login(request: Request, body: LoginRequest, response: Response):
     """
     Authenticates a user via Firebase Google OAuth ID Token.
     Upserts user record in Supabase 'users' table, creates Redis session, and sets session cookie.
@@ -89,18 +89,25 @@ async def login(body: LoginRequest, response: Response):
             ex=60 * 60 * 24 * 7,  # 7 days
         )
 
-        # 3. Set HTTP-only Cookie
-        response.set_cookie(
-            key="session",
-            value=session_id,
-            httponly=True,
-            secure=False,
-            samesite="lax",
-            max_age=60 * 60 * 24 * 7,
-        )
+        # 3. Set Cookie with protocol detection
+        is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        try:
+            response.set_cookie(
+                key="session",
+                value=session_id,
+                httponly=True,
+                secure=is_https,
+                samesite="none" if is_https else "lax",
+                max_age=60 * 60 * 24 * 7,
+            )
+        except Exception:
+            pass
+
+        response.headers["x-session-token"] = session_id
 
         return {
             "success": True,
+            "token": session_id,
             "user": session_payload,
         }
 
@@ -112,6 +119,49 @@ async def login(body: LoginRequest, response: Response):
         )
 
 
+@auth_router.post("/demo-login")
+async def demo_login(request: Request, response: Response):
+    """
+    Instantly logs in a test candidate for local or demo evaluation without Firebase credentials.
+    """
+    session_id = f"demo_{uuid.uuid4()}"
+    demo_user = {
+        "userId": "demo_candidate_uid",
+        "_id": "demo_candidate_uid",
+        "id": "demo_candidate_uid",
+        "name": "Fresher Candidate",
+        "email": "candidate@fresherai.com",
+        "interviewCoin": 150,
+    }
+
+    await set_cache(
+        f"session:{session_id}",
+        json.dumps(demo_user),
+        ex=60 * 60 * 24 * 7,
+    )
+
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    try:
+        response.set_cookie(
+            key="session",
+            value=session_id,
+            httponly=True,
+            secure=is_https,
+            samesite="none" if is_https else "lax",
+            max_age=60 * 60 * 24 * 7,
+        )
+    except Exception:
+        pass
+
+    response.headers["x-session-token"] = session_id
+
+    return {
+        "success": True,
+        "token": session_id,
+        "user": demo_user,
+    }
+
+
 @auth_router.get("/logout")
 async def logout(
     request: Request,
@@ -119,22 +169,30 @@ async def logout(
     session: Optional[str] = Cookie(None),
 ):
     """Logs out the user, removes session from Redis, and clears session cookie."""
-    session_id = session or request.cookies.get("session")
+    auth_header = request.headers.get("Authorization")
+    header_token = auth_header[7:].strip() if auth_header and auth_header.startswith("Bearer ") else None
+    session_id = header_token or session or request.cookies.get("session")
 
     if session_id:
         await delete_cache(f"session:{session_id}")
 
-    response.delete_cookie(
-        key="session",
-        httponly=True,
-        secure=False,
-        samesite="lax",
-    )
+    is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    try:
+        response.delete_cookie(
+            key="session",
+            httponly=True,
+            secure=is_https,
+            samesite="none" if is_https else "lax",
+        )
+    except Exception:
+        pass
 
     return {
         "success": True,
         "message": "Logged out successfully",
     }
+
+
 
 
 @auth_router.post("/use-interview-coins")
