@@ -4,16 +4,11 @@ import {
   FiSidebar,
   FiBell,
   FiArrowRight,
-  FiCode,
   FiMessageSquare,
-  FiSliders,
   FiFileText,
   FiStar,
   FiMap,
   FiVideo,
-  FiCheckCircle,
-  FiAward,
-  FiClock,
   FiLogOut,
   FiChevronDown,
 } from "react-icons/fi";
@@ -31,7 +26,6 @@ export default function Dashboard({ user, setUser }) {
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
-  const firstName = user?.name ? user.name.split(" ")[0] : "there";
   const initials = user?.name
     ? user.name
         .split(" ")
@@ -46,7 +40,6 @@ export default function Dashboard({ user, setUser }) {
       try {
         const response = await getAllInterviews();
         if (response) {
-          // Flatten interview list if available
           const rawInterviews = response.interviews || [];
           setInterviews(rawInterviews);
         }
@@ -70,7 +63,7 @@ export default function Dashboard({ user, setUser }) {
   };
 
   return (
-    <div className="bg-[#F8F9FA] min-h-screen text-slate-800 font-sans flex">
+    <div className="bg-[#F8F9FB] min-h-screen text-slate-800 font-sans flex">
       {/* ── Left Sidebar ── */}
       <Sidebar
         user={user}
@@ -149,7 +142,7 @@ export default function Dashboard({ user, setUser }) {
                         {user?.name ?? "Fresher Candidate"}
                       </p>
                       <p className="text-[10px] text-slate-400 truncate">
-                        {user?.email ?? "candidate@fresherai.com"}
+                        {user?.email ?? "candidate@fresher.ai"}
                       </p>
                     </div>
 
@@ -183,7 +176,7 @@ export default function Dashboard({ user, setUser }) {
 
         <div className="max-w-6xl mx-auto space-y-8">
           {/* ── 1. Hero Section ── */}
-          <div className="relative rounded-[28px] bg-gradient-to-r from-[#EEF2FF] via-[#F5F3FF] to-[#FAF5FF] border border-indigo-100/90 p-6 sm:p-8 md:p-10 shadow-[0_4px_24px_rgba(79,70,229,0.04)] overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="relative rounded-[28px] bg-gradient-to-r from-[#EEF2FF]/80 via-[#F5F3FF]/90 to-[#FAF5FF] border border-indigo-100/90 p-6 sm:p-8 md:p-10 shadow-[0_4px_24px_rgba(79,70,229,0.04)] overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
             {/* Left Column Content */}
             <div className="flex-1 max-w-xl z-10">
               {/* Badge */}
@@ -365,7 +358,12 @@ export default function Dashboard({ user, setUser }) {
               >
                 <div className="flex items-start gap-3.5 mb-6">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center shadow-sm shrink-0">
-                    <FiMessageSquare size={20} />
+                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-none stroke-current stroke-2">
+                      <circle cx="10" cy="8" r="4" />
+                      <path d="M4 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+                      <path d="M19 8c0 1.5-0.7 2.8-1.8 3.5" />
+                      <path d="M21 5c0 3-1.5 5.5-3.5 7" />
+                    </svg>
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
@@ -392,7 +390,7 @@ export default function Dashboard({ user, setUser }) {
               >
                 <div className="flex items-start gap-3.5 mb-6">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-sm shrink-0">
-                    <FiSliders size={20} />
+                    <BsStars size={22} />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
@@ -434,7 +432,7 @@ export default function Dashboard({ user, setUser }) {
                 className="group bg-white rounded-2xl border border-slate-200/80 hover:border-indigo-200 p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-500 text-white flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-xs">
                     <FiFileText size={20} />
                   </div>
                   <h3 className="text-sm font-bold text-slate-900 mb-1">Resume Builder</h3>
@@ -455,8 +453,12 @@ export default function Dashboard({ user, setUser }) {
                 className="group bg-white rounded-2xl border border-slate-200/80 hover:border-orange-200 p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-11 h-11 rounded-2xl bg-orange-500/10 text-orange-600 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                    <FiStar size={20} />
+                  <div className="w-11 h-11 rounded-2xl bg-orange-500 text-white flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-xs">
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2">
+                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                      <circle cx="12" cy="12" r="4" />
+                      <path d="M12 12l2.5-2.5" />
+                    </svg>
                   </div>
                   <h3 className="text-sm font-bold text-slate-900 mb-1">Resume Score</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
@@ -476,7 +478,7 @@ export default function Dashboard({ user, setUser }) {
                 className="group bg-white rounded-2xl border border-slate-200/80 hover:border-emerald-200 p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-xs">
                     <FiMap size={20} />
                   </div>
                   <h3 className="text-sm font-bold text-slate-900 mb-1">Roadmap Builder</h3>
@@ -497,7 +499,7 @@ export default function Dashboard({ user, setUser }) {
                 className="group bg-white rounded-2xl border border-slate-200/80 hover:border-blue-200 p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-11 h-11 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                  <div className="w-11 h-11 rounded-2xl bg-blue-500 text-white flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-xs">
                     <FiVideo size={20} />
                   </div>
                   <h3 className="text-sm font-bold text-slate-900 mb-1">Solution Video</h3>

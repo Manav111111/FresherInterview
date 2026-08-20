@@ -1,215 +1,277 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { FiMic, FiFileText, FiBarChart2, FiMap } from "react-icons/fi";
+import {
+  FiFileText,
+  FiStar,
+  FiMap,
+  FiVideo,
+  FiArrowRight,
+  FiCheckCircle,
+  FiMessageSquare,
+  FiSliders,
+} from "react-icons/fi";
 import { GiArtificialHive } from "react-icons/gi";
+import { BsStars } from "react-icons/bs";
 import { LoginModal } from "../components/LoginModel";
-import img from "../assets/image.png"
-
 
 export default function Home({ user, setUser }) {
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   return (
-    <div className="bg-white text-[#0A0A0A] font-sans min-h-screen overflow-x-hidden">
-
+    <div className="bg-[#F8F9FB] text-slate-800 font-sans min-h-screen overflow-x-hidden selection:bg-indigo-100 selection:text-indigo-700">
       {/* ── NAVBAR ── */}
       <motion.nav
         initial={{ y: -60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="fixed top-0 left-0 right-0 z-50 h-[52px] flex items-center justify-between px-5 bg-white/70 backdrop-blur-xl border-b border-black/5"
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="fixed top-0 left-0 right-0 z-50 h-[64px] flex items-center justify-between px-6 md:px-12 bg-white/80 backdrop-blur-xl border-b border-slate-100 shadow-2xs"
       >
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#0A0A0A] flex items-center justify-center shadow-[0_4px_14px_rgba(0,0,0,0.18)]">
-            <GiArtificialHive size={15} color="white" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/20">
+            <GiArtificialHive size={20} color="white" />
           </div>
-          <span className="font-extrabold text-base tracking-tight text-[#0A0A0A]">
-            Fresher.AI
+          <span className="font-extrabold text-base tracking-tight text-slate-900">
+            Fresher.Ai
           </span>
         </div>
 
-        {/* Nav Button */}
-        <motion.button
-          onClick={() => setShowLoginModal(true)}
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.97 }}
-          className="bg-[#0A0A0A]/80 backdrop-blur-2xl text-white font-semibold border border-white/10 rounded-md px-3 py-1.5 text-xs cursor-pointer transition-all hover:border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)]"
-        >
-          Log In →
-        </motion.button>
+        {/* Nav Buttons */}
+        <div className="flex items-center gap-3">
+          <motion.button
+            onClick={() => setShowLoginModal(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+          >
+            Log In
+          </motion.button>
+          <motion.button
+            onClick={() => setShowLoginModal(true)}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            className="px-4 py-2 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-semibold shadow-sm shadow-indigo-500/25 transition-all"
+          >
+            Get Started Free →
+          </motion.button>
+        </div>
       </motion.nav>
 
-      {/* ── HERO ── */}
-      <section className="relative pt-20 pb-14 overflow-hidden bg-[#F8F9FA]">
-        {/* Subtle dark glow */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-black/[0.04] blur-[90px] pointer-events-none" />
-
-        <div className="max-w-4xl mx-auto px-6 text-center">
-
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.05 }}
-            className="inline-flex items-center px-3 py-1.5 rounded-full border border-black/15 bg-black/5 text-black/70 text-xs font-medium mb-4"
-          >
-            Multi-Agent Interview Platform
-          </motion.div>
-
-          {/* Headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.12 }}
-            className="text-3xl md:text-5xl font-extrabold leading-[1.1] tracking-tight mb-4 text-[#0A0A0A] [text-shadow:0_4px_24px_rgba(0,0,0,0.12)]"
-          >
-            Job Interviews<br />
-            <span className="text-black/30">
-              Don't Have to Suck
-            </span><br />
-            Anymore!
-          </motion.h1>
-
-          {/* Subtext */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.2 }}
-            className="text-black/45 text-sm leading-relaxed max-w-md mx-auto mb-6 [text-shadow:0_2px_10px_rgba(0,0,0,0.06)]"
-          >
-            Fresher.AI is an innovative AI-powered interview preparation platform
-            designed to help job seekers excel in their interviews.
-          </motion.p>
-
-          {/* CTA Button */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.28 }}
-          >
-            <motion.button
-              onClick={() => setShowLoginModal(true)}
-              whileHover={{ scale: 1.05, boxShadow: "0 0 36px rgba(0,0,0,0.18)" }}
-              whileTap={{ scale: 0.97 }}
-              className="relative overflow-hidden bg-[#0A0A0A]/80 backdrop-blur-2xl text-white font-bold px-5 py-2.5 rounded-lg text-xs cursor-pointer border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all hover:border-white/20"
-            >
-              Get started for free →
-              <span className="absolute inset-0 bg-gradient-to-br from-white/[0.1] via-transparent to-transparent pointer-events-none rounded-lg" />
-            </motion.button>
-          </motion.div>
-
-          {/* Hero Image */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -10, scale: 1.02 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
-            className="mt-10 rounded-lg overflow-hidden  shadow-[0_0_60px_rgba(0,0,0,0.06)] max-w-2xl mx-auto"
-          >
-            <img
-              src={img}
-              alt="IOS.Ai Dashboard"
-              className="w-full h-auto object-cover block "
-              onError={(e) => {
-                e.target.src =
-                  "https://placehold.co/900x500/F3F4F6/0A0A0A?text=IOS.Ai+Dashboard";
-              }}
-            />
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ── AGENTS ── */}
-      <section className="py-16 bg-[#F8F9FA]">
-        <div className="max-w-5xl mx-auto px-6">
-
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center px-3 py-1.5 rounded-full border border-black/15 bg-black/5 text-black/70 text-xs font-medium mb-4">
-              AI Powered Agents
+      {/* ── HERO SECTION ── */}
+      <section className="relative pt-28 pb-16 px-4 sm:px-6 md:px-8 max-w-6xl mx-auto">
+        <div className="relative rounded-[32px] bg-gradient-to-r from-[#EEF2FF] via-[#F5F3FF] to-[#FAF5FF] border border-indigo-100/90 p-8 sm:p-12 md:p-14 shadow-[0_8px_32px_rgba(79,70,229,0.06)] overflow-hidden flex flex-col md:flex-row items-center justify-between gap-10">
+          {/* Left Hero Content */}
+          <div className="flex-1 max-w-xl z-10 text-left">
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md border border-indigo-100 text-xs font-semibold text-slate-700 shadow-2xs mb-5">
+              <span>👋 Welcome to Next-Gen Prep!</span>
             </div>
 
-            <h2 className="text-2xl md:text-4xl font-extrabold tracking-tight text-[#0A0A0A] [text-shadow:0_4px_20px_rgba(0,0,0,0.1)]">
-              Specialized Agents For
-              <span className="block text-black/30">
-                Every Interview Stage
-              </span>
-            </h2>
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.12] mb-4">
+              Ready to{" "}
+              <span className="text-[#4F46E5] bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] bg-clip-text text-transparent">
+                ace
+              </span>{" "}
+              your next interview?
+            </h1>
 
-            <p className="text-black/40 text-sm max-w-2xl mx-auto mt-4 leading-relaxed">
-              Fresher.AI combines multiple AI agents that work together
-              to help you build your resume, practice interviews,
-              receive detailed feedback, and follow a personalized roadmap
-              to land your dream job.
+            <p className="text-slate-600 text-sm sm:text-base font-normal leading-relaxed mb-8">
+              Practice with AI, improve your answers with real-time evaluation, and get personalized feedback to land your dream job.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="flex items-center gap-2 px-7 py-3.5 rounded-2xl bg-[#4F46E5] hover:bg-[#4338CA] text-white text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <span>Start Practicing Now</span>
+                <FiArrowRight size={16} />
+              </button>
+
+              <div className="flex items-center gap-2.5">
+                <div className="flex -space-x-2">
+                  <img
+                    className="w-8 h-8 rounded-full border-2 border-white object-cover shadow-2xs"
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&auto=format&fit=crop&q=80"
+                    alt="Student"
+                  />
+                  <img
+                    className="w-8 h-8 rounded-full border-2 border-white object-cover shadow-2xs"
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80"
+                    alt="Student"
+                  />
+                  <img
+                    className="w-8 h-8 rounded-full border-2 border-white object-cover shadow-2xs"
+                    src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&auto=format&fit=crop&q=80"
+                    alt="Student"
+                  />
+                </div>
+                <span className="text-xs font-medium text-slate-500">
+                  <strong className="text-slate-800 font-bold">10K+</strong> students practicing every day
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Hero Mascot Area */}
+          <div className="relative w-full max-w-[280px] sm:max-w-[340px] aspect-square flex items-center justify-center shrink-0">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-300/30 to-purple-400/30 blur-2xl transform scale-90" />
+
+            <motion.div
+              animate={{ y: [-4, 6, -4] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-4 left-2 z-20 w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25 font-mono font-bold text-base"
+            >
+              &lt;/&gt;
+            </motion.div>
+
+            <motion.div
+              animate={{ y: [6, -6, 6] }}
+              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-8 right-2 z-20 w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/25"
+            >
+              <FiMessageSquare size={20} />
+            </motion.div>
+
+            <div className="relative z-10 w-52 h-52 sm:w-64 sm:h-64 flex items-center justify-center">
+              <svg
+                viewBox="0 0 200 200"
+                className="w-full h-full drop-shadow-xl"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <ellipse cx="100" cy="165" rx="42" ry="18" fill="#CBD5E1" opacity="0.5" />
+                <rect x="65" y="110" width="70" height="50" rx="20" fill="url(#home_bot_body)" />
+                <rect x="75" y="122" width="50" height="24" rx="10" fill="#0F172A" />
+                <circle cx="90" cy="134" r="3" fill="#60A5FA" />
+                <circle cx="100" cy="134" r="3" fill="#34D399" />
+                <circle cx="110" cy="134" r="3" fill="#F472B6" />
+                <rect x="90" y="98" width="20" height="15" rx="4" fill="#94A3B8" />
+                <rect x="52" y="45" width="96" height="60" rx="24" fill="url(#home_bot_head)" stroke="#FFFFFF" strokeWidth="3" />
+                <circle cx="48" cy="75" r="9" fill="#818CF8" />
+                <circle cx="152" cy="75" r="9" fill="#818CF8" />
+                <rect x="62" y="55" width="76" height="40" rx="16" fill="#0F172A" />
+                <circle cx="83" cy="74" r="7" fill="#60A5FA" />
+                <circle cx="85" cy="72" r="2.5" fill="#FFFFFF" />
+                <circle cx="117" cy="74" r="7" fill="#60A5FA" />
+                <circle cx="119" cy="72" r="2.5" fill="#FFFFFF" />
+                <path d="M93 83C96 86 104 86 107 83" stroke="#60A5FA" strokeWidth="2.5" strokeLinecap="round" />
+                <line x1="100" y1="45" x2="100" y2="30" stroke="#818CF8" strokeWidth="3" strokeLinecap="round" />
+                <circle cx="100" cy="27" r="5" fill="#A78BFA" />
+
+                <defs>
+                  <linearGradient id="home_bot_head" x1="52" y1="45" x2="148" y2="105" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#F8FAFC" />
+                    <stop offset="1" stopColor="#E2E8F0" />
+                  </linearGradient>
+                  <linearGradient id="home_bot_body" x1="65" y1="110" x2="135" y2="160" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#FFFFFF" />
+                    <stop offset="1" stopColor="#E2E8F0" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 3 Practice Tracks ── */}
+        <div className="mt-14 space-y-4">
+          <div className="text-center max-w-xl mx-auto mb-8">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Start an Interview in Seconds
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Choose your practice track and let AI conduct realistic mock interviews.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {
-                icon: <FiFileText />,
-                title: "Resume Agent",
-                desc: "Create ATS-friendly resumes, improve profile strength and maximize interview opportunities.",
-              },
-              {
-                icon: <FiMic />,
-                title: "Interview Agent",
-                desc: "Conduct realistic HR, Technical and Coding interviews with AI-powered simulations.",
-              },
-              {
-                icon: <FiBarChart2 />,
-                title: "Feedback Agent",
-                desc: "Get detailed answer analysis, scoring reports and improvement recommendations.",
-              },
-              {
-                icon: <FiMap />,
-                title: "Roadmap Agent",
-                desc: "Generate personalized learning roadmaps based on goals, skills and performance.",
-              },
-            ].map((agent, i) => (
-              <motion.div
-                key={agent.title}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: i * 0.08 }}
-                whileHover={{ y: -10, scale: 1.02 }}
-                className="group relative overflow-hidden bg-[#0A0A0A]/80 backdrop-blur-2xl border border-white/10 rounded-2xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:shadow-[0_16px_48px_rgba(0,0,0,0.4)] hover:border-white/20 transition-all"
-              >
-                {/* glass sheen */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-transparent to-transparent pointer-events-none" />
-                {/* hover glow */}
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                <div className="relative">
-                  <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white text-lg mb-4 shadow-inner">
-                    {agent.icon}
-                  </div>
-                  <h3 className="text-base font-bold mb-2 text-white">{agent.title}</h3>
-                  <p className="text-white/45 text-xs leading-relaxed">{agent.desc}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div
+              onClick={() => setShowLoginModal(true)}
+              className="bg-white rounded-3xl border border-indigo-100 p-6 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+            >
+              <div className="flex items-start gap-4 mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-mono font-bold text-lg shadow-sm shrink-0">
+                  &lt;/&gt;
                 </div>
-              </motion.div>
-            ))}
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                    Technical Interview
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Practice DSA, system design, coding problems and technical concepts.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <div className="w-9 h-9 rounded-full border border-slate-200 group-hover:bg-indigo-600 group-hover:text-white text-slate-400 flex items-center justify-center transition">
+                  <FiArrowRight size={15} />
+                </div>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setShowLoginModal(true)}
+              className="bg-white rounded-3xl border border-orange-100 p-6 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+            >
+              <div className="flex items-start gap-4 mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center shadow-sm shrink-0">
+                  <FiMessageSquare size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                    HR &amp; Behavioral
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Prepare for situational, behavioral, and communication rounds.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <div className="w-9 h-9 rounded-full border border-slate-200 group-hover:bg-orange-500 group-hover:text-white text-slate-400 flex items-center justify-center transition">
+                  <FiArrowRight size={15} />
+                </div>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setShowLoginModal(true)}
+              className="bg-white rounded-3xl border border-emerald-100 p-6 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+            >
+              <div className="flex items-start gap-4 mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-sm shrink-0">
+                  <BsStars size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
+                    Custom Interview
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Tailor questions to your exact job role, resume, and experience level.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <div className="w-9 h-9 rounded-full border border-slate-200 group-hover:bg-emerald-500 group-hover:text-white text-slate-400 flex items-center justify-center transition">
+                  <FiArrowRight size={15} />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Login Modal placeholder */}
-      {showLoginModal && (
-        <LoginModal onClose={()=>setShowLoginModal(false)} setUser={setUser}/>
-      )}
-
       {/* ── FOOTER ── */}
-      <footer className="border-t border-black/7 py-6 text-center bg-white">
-        <div className="flex items-center justify-center gap-2 mb-1.5">
-          <div className="w-5 h-5 rounded-md bg-[#0A0A0A] flex items-center justify-center">
-            <GiArtificialHive size={11} color="white" />
-          </div>
-          <span className="font-bold text-xs text-[#0A0A0A]/70">Fresher.AI</span>
-        </div>
-        <div className="text-black/30 text-xs">© {new Date().getFullYear()} Fresher.AI · All rights reserved</div>
+      <footer className="border-t border-slate-200/80 py-8 text-center text-xs text-slate-400 bg-white">
+        <p>© 2026 Fresher.Ai • AI Multi-Agent Interview &amp; Career Preparation</p>
       </footer>
 
+      {/* Login Modal */}
+      {showLoginModal && (
+        <LoginModal
+          onClose={() => setShowLoginModal(false)}
+          setUser={setUser}
+        />
+      )}
     </div>
   );
 }
