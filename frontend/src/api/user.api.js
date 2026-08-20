@@ -52,13 +52,16 @@ export const logoutUser = async () => {
   try {
     const response = await api.get("/api/auth/logout");
     localStorage.removeItem("fresherai_token");
+    localStorage.removeItem("fresherai_demo_user");
     return response.data;
   } catch (error) {
     console.error("Logout error:", error.response?.data || error.message);
     localStorage.removeItem("fresherai_token");
+    localStorage.removeItem("fresherai_demo_user");
     return { success: false };
   }
 };
+
 
 
 /**

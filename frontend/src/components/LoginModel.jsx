@@ -34,18 +34,32 @@ export function LoginModal({ onClose, setUser }) {
   const handleDemoLogin = async () => {
     try {
       setLoading(true);
-      const response = await demoLoginUser();
-      if (response?.user) {
-        setUser(response.user);
-      }
+      const demoCandidate = {
+        userId: "demo_candidate_uid",
+        _id: "demo_candidate_uid",
+        id: "demo_candidate_uid",
+        name: "Fresher Candidate",
+        email: "candidate@fresherai.com",
+        interviewCoin: 150,
+      };
+      localStorage.setItem("fresherai_token", "demo_candidate_token");
+      localStorage.setItem("fresherai_demo_user", JSON.stringify(demoCandidate));
+      setUser(demoCandidate);
       onClose();
+
+      // Background sync with Render backend
+      try {
+        await demoLoginUser();
+      } catch (syncErr) {
+        console.warn("Backend sync notice:", syncErr?.message || syncErr);
+      }
     } catch (error) {
       console.error("Demo login error:", error);
-      alert("Demo login error: " + (error.response?.data?.detail || error.message));
     } finally {
       setLoading(false);
     }
   };
+
 
 
 

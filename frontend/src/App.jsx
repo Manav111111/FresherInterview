@@ -30,15 +30,29 @@ function App() {
         const data = await getCurrentUser();
         if (data?.user) {
           setUser(data.user);
+        } else {
+          const cachedDemo = localStorage.getItem("fresherai_demo_user");
+          if (cachedDemo) {
+            try {
+              setUser(JSON.parse(cachedDemo));
+            } catch (_) {}
+          }
         }
       } catch (err) {
         console.warn("Session check complete:", err);
+        const cachedDemo = localStorage.getItem("fresherai_demo_user");
+        if (cachedDemo) {
+          try {
+            setUser(JSON.parse(cachedDemo));
+          } catch (_) {}
+        }
       } finally {
         setLoading(false);
       }
     };
     getUser();
   }, []);
+
 
   useEffect(() => {
     const fetchResume = async () => {
