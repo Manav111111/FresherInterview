@@ -27,6 +27,26 @@ export const submitAnswer = async (data) => {
 };
 
 /**
+ * Server-side audio transcription via Groq Whisper / Gemini STT
+ */
+export const transcribeAudio = async (audioBlob, filename = "answer.webm") => {
+  try {
+    const formData = new FormData();
+    formData.append("file", audioBlob, filename);
+    const response = await api.post("/api/audio/transcribe", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Audio transcription failed:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+
+/**
  * Fetch a single interview session / report by ID
  */
 export const getInterview = async (id) => {

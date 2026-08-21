@@ -4,8 +4,13 @@ import logging
 from typing import List, Dict, Any, Optional, TypedDict
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
-from app.core.llm import get_llm
-from app.config import settings
+from app.ai.provider_router import ai_router
+from app.ai.schemas import (
+    TaskType,
+    AIRequest,
+    AnswerEvaluationSchema,
+    InterviewReportSchema,
+)
 
 logger = logging.getLogger("fresherai.interview_graph")
 
@@ -23,6 +28,10 @@ class InterviewState(TypedDict, total=False):
     completed: bool
     feedback: Dict[str, Any]
     report: Dict[str, Any]
+    skills_tested: List[str]
+    skills_to_test: List[str]
+    strengths_detected: List[str]
+    weaknesses_detected: List[str]
 
 
 # ==========================================
@@ -32,71 +41,67 @@ class InterviewState(TypedDict, total=False):
 def get_hr_interview_prompt(role: str, use_resume: bool, resume: Dict[str, Any]) -> str:
     resume_context = ""
     if use_resume and resume:
-        skills = ", ".join(resume.get("skills", []))
-        projects = ", ".join(resume.get("projects", []))
-        strengths = ", ".join(resume.get("strengths", []))
-        weaknesses = ", ".join(resume.get("weaknesses", []))
+        skills = ", ".join(resume.get("skills", []) if isinstance(resume.get("skills"), list) else [str(resume.get("skills", ""))])
+        raw_projects = resume.get("projects", [])
+        project_names = [p.get("name", str(p)) if isinstance(p, dict) else str(p) for p in raw_projects] if isinstance(raw_projects, list) else [str(raw_projects)]
+        projects = ", ".join(project_names)
         resume_context = f"""
 Resume Summary: {resume.get('summary', '')}
 Skills: {skills}
 Projects: {projects}
-Strengths: {strengths}
-Weaknesses: {weaknesses}
 """
     return f"""
-You are a Senior HR Interviewer with 15+ years of experience.
-Generate realistic HR interview questions for the role: {role}
+You are a Senior HR Interviewer & Talent Partner with 15+ years of experience.
+Generate 6 realistic, adaptive HR / Behavioral interview questions for the role: {role}
 Resume Available: {"YES" if use_resume else "NO"}
 {resume_context}
 
 RULES:
 1. Generate EXACTLY 6 questions.
-2. Each question object must contain ONLY: "question", "difficulty" (easy/medium/hard), and "timer" (integer seconds 60-180).
-3. Difficulty order: Q1->easy, Q2->easy, Q3->medium, Q4->hard, Q5->hard, Q6->hard.
-4. Return ONLY valid JSON array. No markdown, no extra text.
-
-Example format:
-[
-  {{"question": "Tell me about yourself and what interests you about this role.", "difficulty": "easy", "timer": 90}},
-  {{"question": "Describe a challenging conflict you faced in a team and how you resolved it.", "difficulty": "medium", "timer": 120}}
-]
+2. Structure progression:
+   - Q1: Introductions, career motivation, and cultural fit (easy)
+   - Q2: Team collaboration and communication (easy)
+   - Q3: Conflict resolution and overcoming adversity (medium)
+   - Q4: Ownership, project delivery under pressure, and STAR methodology (hard)
+   - Q5: Strategic decision-making and cross-functional leadership (hard)
+   - Q6: Career goals and long-term vision (hard)
+3. Each question object must contain ONLY: "question", "difficulty" (easy/medium/hard), "timer" (integer seconds 60-180), and "topic".
+4. Return ONLY valid JSON array.
 """
 
 
 def get_technical_interview_prompt(role: str, use_resume: bool, resume: Dict[str, Any]) -> str:
     resume_context = ""
     if use_resume and resume:
-        skills = ", ".join(resume.get("skills", []))
-        projects = ", ".join(resume.get("projects", []))
+        skills = ", ".join(resume.get("skills", []) if isinstance(resume.get("skills"), list) else [str(resume.get("skills", ""))])
+        raw_projects = resume.get("projects", [])
+        project_names = [p.get("name", str(p)) if isinstance(p, dict) else str(p) for p in raw_projects] if isinstance(raw_projects, list) else [str(raw_projects)]
+        projects = ", ".join(project_names)
         resume_context = f"""
-Candidate Skills: {skills}
+Candidate Verified Skills: {skills}
 Candidate Projects: {projects}
 """
+
     return f"""
-You are an Elite Domain Expert & Senior Hiring Bar-Raiser with 15+ years of experience.
-Generate 6 realistic, highly tailored interview questions specifically for the exact role: {role}
+You are an Elite Domain Expert & Senior Principal Hiring Bar-Raiser with 15+ years of experience.
+Generate 6 realistic, highly tailored technical interview questions specifically for: {role}
 Resume Available: {"YES" if use_resume else "NO"}
 {resume_context}
 
 RULES:
-1. Generate EXACTLY 6 interview questions tailored specifically to the real-world tools, core competencies, workflows, strategies, and practical problem-solving required for a {role}.
-   - If the role is Creative/Content/Design/Media/Marketing: Ask about content strategy, storytelling, distribution algorithms, retention metrics, editing workflows, and analytics.
-   - If the role is Product/Operations/Business/Management: Ask about product roadmaps, go-to-market, growth KPIs, customer discovery, and prioritization.
-   - If the role is Engineering/Tech/DevOps/Data: Ask about architecture, clean code, database scaling, APIs, and debugging.
-2. Each object must contain ONLY: "question", "difficulty" (easy/medium/hard), "timer" (integer seconds 60-180).
-3. Difficulty order: Q1->easy, Q2->easy, Q3->medium, Q4->hard, Q5->hard, Q6->hard.
-4. Return ONLY valid JSON array. No markdown, no extra text.
-
-Example format:
-[
-  {{"question": "How do you research, structure, and optimize your workflow when developing a new campaign or project?", "difficulty": "easy", "timer": 90}},
-  {{"question": "What key metrics or quality benchmarks do you prioritize to ensure impactful outcomes?", "difficulty": "medium", "timer": 120}}
-]
+1. Generate EXACTLY 6 questions covering:
+   - Q1: Core fundamentals and tool ecosystem (easy)
+   - Q2: Practical development workflow and API/module design (easy)
+   - Q3: Debugging, profiling, and performance bottlenecks (medium)
+   - Q4: Distributed architecture, data consistency, or high-throughput scaling (hard)
+   - Q5: Real-world production outage / refactoring case study (hard)
+   - Q6: Security, automated testing, and CI/CD reliability (hard)
+2. Each object must contain: "question", "difficulty" (easy/medium/hard), "timer" (integer seconds 60-180), and "topic".
+3. Return ONLY valid JSON array.
 """
 
 
 def get_feedback_prompt(question: str, answer: str, difficulty: str) -> str:
-
     return f"""
 You are an Elite Technical and HR Hiring Bar-Raiser Interviewer with 15+ years of experience.
 Critically, accurately, and thoroughly evaluate the candidate's answer for the question below.
@@ -107,144 +112,72 @@ Difficulty: {difficulty}
 
 EVALUATION CRITERIA:
 1. "score" (0-100): Score based strictly on technical correctness, conceptual depth, completeness, and accuracy.
-   - Blank, nonsensical, or "I don't know" answers: 0 to 25.
-   - Vague or incomplete surface-level answers: 40 to 65.
-   - Solid, mostly accurate answers: 70 to 82.
-   - Comprehensive, senior-level, structured answers with nuance and edge cases: 85 to 98.
-2. "correctness" (0-100): Accuracy of technical claims, logic, and factual statements.
-3. "clarity" (0-100): How clearly, concisely, and effectively the candidate structured their thoughts.
+2. "correctness" (0-100): Accuracy of technical claims and logic.
+3. "clarity" (0-100): How clearly and concisely the candidate structured their thoughts.
 4. "relevance" (0-100): How directly the answer addresses what was asked.
-5. "detail" (0-100): Technical depth, specific terminology, and nuance.
+5. "detail" (0-100): Technical depth and nuance.
 6. "efficiency" (0-100): Directness, avoiding unnecessary fluff.
-7. "communication" (0-100): Articulation, clarity, and professional tone.
-8. "problemSolving" (0-100): Structured problem-solving mindset and trade-off considerations.
-9. "creativity" (0-100): Insightful edge-cases, optimization insights, or alternative solutions.
-10. "idealAnswer": Detailed, professional, comprehensive model answer (4-6 sentences or code snippet) demonstrating what an ideal candidate should answer.
-11. "keyPointsCovered": Array of strings (2-4 bullet points) noting specific concepts or points the candidate successfully mentioned.
-12. "keyPointsMissed": Array of strings (2-4 bullet points) noting crucial concepts, edge cases, or architecture details the candidate omitted.
-13. "feedback": Direct, honest, and constructive critique (2-3 sentences).
+7. "communication" (0-100): Articulation and professional tone.
+8. "problemSolving" (0-100): Structured problem-solving mindset and trade-offs.
+9. "creativity" (0-100): Edge cases, optimizations, or alternative solutions.
+10. "idealAnswer": Detailed, professional model answer (4-6 sentences).
+11. "keyPointsCovered": Array of 2-4 bullet points noting points the candidate successfully mentioned.
+12. "keyPointsMissed": Array of 2-4 bullet points noting crucial concepts omitted.
+13. "feedback": Direct, constructive critique (2-3 sentences).
 14. "improvements": Exactly 3 actionable bullet points to improve the answer.
 
-Return ONLY valid JSON (no markdown fences, no extra text).
-Example format:
-{{
-  "score": 82,
-  "correctness": 85,
-  "clarity": 84,
-  "relevance": 88,
-  "detail": 80,
-  "efficiency": 82,
-  "communication": 85,
-  "problemSolving": 83,
-  "creativity": 78,
-  "idealAnswer": "To optimize database queries under heavy read loads, we should first implement database indexing on frequently queried columns, set up read replicas to distribute query traffic, utilize caching layers like Redis with appropriate TTLs, and use database connection pooling alongside query profiling with EXPLAIN ANALYZE.",
-  "keyPointsCovered": [
-    "Mentioned database indexing on key lookup fields",
-    "Suggested caching frequently accessed results"
-  ],
-  "keyPointsMissed": [
-    "Did not mention read replica distribution or connection pooling",
-    "Omitted database query profiling and execution plan analysis"
-  ],
-  "feedback": "Good fundamental understanding of caching and indexing. To demonstrate senior-level mastery, discuss read replication architecture, cache invalidation strategies, and connection pooling.",
-  "improvements": [
-    "Discuss read replica distribution for scaling high-throughput query loads.",
-    "Explain cache invalidation mechanisms (e.g. Cache-Aside or Write-Through).",
-    "Use EXPLAIN ANALYZE to identify slow table scans and optimize indexes."
-  ]
-}}
+Return ONLY valid JSON.
 """
 
 
 def get_summary_prompt(role: str, interview_type: str, questions: List[Dict[str, Any]]) -> str:
     return f"""
-You are an expert technical interviewer and hiring manager.
-Analyze the complete interview session and generate a final comprehensive report.
+You are a Principal Hiring Manager and Talent Evaluation Director.
+Analyze the complete interview session and generate a comprehensive final performance report using deep reasoning.
 
 Role: {role}
 Type: {interview_type}
-Questions & Answers:
+Interview Transcripts & Evaluations:
 {json.dumps(questions, indent=2)}
 
 RULES:
-1. Overall score between 0-100 based on the average quality and depth of answers.
-2. Summary: 80-120 words summarizing performance, strengths, and areas for growth.
-3. Strengths: 3-5 bullet points.
-4. Weaknesses: 3-5 bullet points.
-5. Recommendations: exactly 5 actionable improvement recommendations.
-6. Return ONLY valid JSON. No markdown.
+1. "overallScore" (0-100): Weighted average of candidate answers.
+2. "technicalScore" (0-100): Technical accuracy and depth.
+3. "communicationScore" (0-100): Clarity, conciseness, and structure.
+4. "summary": 80-120 words summarizing performance, key strengths, and growth areas.
+5. "strengths": 3-5 specific bullet points derived from actual answers.
+6. "weaknesses": 3-5 specific areas needing improvement.
+7. "recommendations": Exactly 5 actionable next steps for the candidate.
+8. "hiringRecommendation": Strong Hire / Hire / Lean Hire / Do Not Hire.
 
-Example format:
-{{
-  "overallScore": 82,
-  "summary": "The candidate demonstrated solid software engineering fundamentals with clear communication across questions. They showed strong technical clarity but need deeper preparation on distributed systems architecture and system resilience.",
-  "strengths": [
-    "Clear conceptual articulation and structured thinking",
-    "Solid understanding of core REST APIs and database patterns",
-    "Positive problem-solving approach"
-  ],
-  "weaknesses": [
-    "Lacked depth in distributed caching and query optimization",
-    "Could provide more quantified production metrics"
-  ],
-  "recommendations": [
-    "Practice system design for large-scale distributed architectures",
-    "Deep-dive into caching strategies and cache invalidation patterns",
-    "Review concurrency, database isolation levels, and transactions",
-    "Solve algorithmic problem-solving drills under timed constraints",
-    "Structure behavioral answers using the STAR method"
-  ]
-}}
+Return ONLY valid JSON.
 """
 
 
 # ==========================================
-# FALLBACK HEURISTICS (For Offline / Test Mode)
+# FALLBACK HEURISTICS
 # ==========================================
 
 def _fallback_questions(role: str, interview_type: str) -> List[Dict[str, Any]]:
     role_lower = role.lower()
     if interview_type.lower() == "hr":
         return [
-            {"question": f"Can you introduce yourself and explain what motivates you to excel as a {role}?", "difficulty": "easy", "timer": 90},
-            {"question": f"What are your greatest professional strengths, and how do they help you succeed as a {role}?", "difficulty": "easy", "timer": 90},
-            {"question": "Describe a difficult challenge or roadblock you encountered on a project and how you resolved it.", "difficulty": "medium", "timer": 120},
-            {"question": "How do you manage competing deadlines and prioritize tasks when working under high pressure?", "difficulty": "hard", "timer": 120},
-            {"question": "Tell me about a time you had a disagreement with a team member or stakeholder and how you handled it constructively.", "difficulty": "hard", "timer": 150},
-            {"question": "Where do you see your career advancing in the next 3 to 5 years, and how does this role fit your vision?", "difficulty": "hard", "timer": 120},
+            {"question": f"Can you introduce yourself and explain what motivates you to excel as a {role}?", "difficulty": "easy", "timer": 90, "topic": "Introductions"},
+            {"question": f"What are your greatest professional strengths, and how do they help you succeed as a {role}?", "difficulty": "easy", "timer": 90, "topic": "Strengths"},
+            {"question": "Describe a difficult challenge or roadblock you encountered on a project and how you resolved it.", "difficulty": "medium", "timer": 120, "topic": "Problem Solving"},
+            {"question": "How do you manage competing deadlines and prioritize tasks when working under high pressure?", "difficulty": "hard", "timer": 120, "topic": "Time Management"},
+            {"question": "Tell me about a time you had a disagreement with a team member or stakeholder and how you handled it constructively.", "difficulty": "hard", "timer": 150, "topic": "Conflict Resolution"},
+            {"question": "Where do you see your career advancing in the next 3 to 5 years, and how does this role fit your vision?", "difficulty": "hard", "timer": 120, "topic": "Career Vision"},
         ]
 
-    # Creative / Content / Media / Design / Marketing
-    if any(k in role_lower for k in ["content", "maker", "creator", "media", "writer", "marketing", "designer", "ui", "ux", "video", "editor"]):
-        return [
-            {"question": f"How do you research, plan, and structure your creative process when producing new work as a {role}?", "difficulty": "easy", "timer": 90},
-            {"question": "What tools and workflows do you rely on to maintain consistent quality and output across projects?", "difficulty": "easy", "timer": 90},
-            {"question": "How do you balance creative storytelling with audience analytics and engagement metrics?", "difficulty": "medium", "timer": 120},
-            {"question": "Describe a campaign or piece of work where performance fell short of expectations. How did you diagnose and adapt?", "difficulty": "hard", "timer": 150},
-            {"question": "How do you optimize distribution across different platforms and stay ahead of algorithmic or audience trends?", "difficulty": "hard", "timer": 150},
-            {"question": "How do you handle tight turnarounds, creative burnout, and competing feedback from multiple stakeholders?", "difficulty": "hard", "timer": 120},
-        ]
-    # Product / Business / Operations / Management
-    elif any(k in role_lower for k in ["product", "manager", "operations", "business", "analyst", "scrum", "lead"]):
-        return [
-            {"question": f"How do you define success metrics and KPIs for a major initiative as a {role}?", "difficulty": "easy", "timer": 90},
-            {"question": "Walk me through how you prioritize competing features or backlog requests when resources are constrained.", "difficulty": "easy", "timer": 90},
-            {"question": "How do you incorporate user feedback and quantitative data into strategic decision-making?", "difficulty": "medium", "timer": 120},
-            {"question": "Describe a time you had to pivot a strategy midway through execution due to unforeseen market or team constraints.", "difficulty": "hard", "timer": 150},
-            {"question": "How do you align cross-functional teams (e.g., engineering, design, sales) around a unified vision?", "difficulty": "hard", "timer": 150},
-            {"question": "What is your approach to managing risk, technical debt, and long-term sustainability in your roadmap?", "difficulty": "hard", "timer": 120},
-        ]
-    # Technical / Software / Engineering / DevOps / Data
-    else:
-        return [
-            {"question": f"Explain the core architectural concepts and best practices required when building scalable systems as a {role}.", "difficulty": "easy", "timer": 90},
-            {"question": f"What tools, libraries, and frameworks do you consider essential in your modern {role} development workflow?", "difficulty": "easy", "timer": 90},
-            {"question": "How do you approach debugging, performance optimization, and profiling when resolving complex production issues?", "difficulty": "medium", "timer": 120},
-            {"question": "How do you design systems with high availability, fault tolerance, and secure data handling?", "difficulty": "hard", "timer": 150},
-            {"question": "Describe a scenario where you had to refactor a legacy module or optimize an inefficient workflow under tight deadlines.", "difficulty": "hard", "timer": 150},
-            {"question": "How do you ensure thorough automated testing, CI/CD reliability, and production observability in your projects?", "difficulty": "hard", "timer": 150},
-        ]
-
+    return [
+        {"question": f"Explain the core architectural concepts and best practices required when building scalable systems as a {role}.", "difficulty": "easy", "timer": 90, "topic": "Core Fundamentals"},
+        {"question": f"What tools, libraries, and frameworks do you consider essential in your modern {role} development workflow?", "difficulty": "easy", "timer": 90, "topic": "Tooling & Ecosystem"},
+        {"question": "How do you approach debugging, performance optimization, and profiling when resolving complex production issues?", "difficulty": "medium", "timer": 120, "topic": "Debugging & Profiling"},
+        {"question": "How do you design systems with high availability, fault tolerance, and secure data handling?", "difficulty": "hard", "timer": 150, "topic": "System Design"},
+        {"question": "Describe a scenario where you had to refactor a legacy module or optimize an inefficient workflow under tight deadlines.", "difficulty": "hard", "timer": 150, "topic": "Refactoring"},
+        {"question": "How do you ensure thorough automated testing, CI/CD reliability, and production observability in your projects?", "difficulty": "hard", "timer": 150, "topic": "Reliability & Observability"},
+    ]
 
 
 def _fallback_feedback(question: str, answer: str) -> Dict[str, Any]:
@@ -252,7 +185,6 @@ def _fallback_feedback(question: str, answer: str) -> Dict[str, Any]:
     words = ans_clean.split()
     word_count = len(words)
 
-    # Detect blank or non-answers
     if word_count < 5 or any(phrase in ans_clean.lower() for phrase in ["don't know", "dont know", "no idea", "skip", "idk", "no answer"]):
         return {
             "score": 25,
@@ -264,22 +196,20 @@ def _fallback_feedback(question: str, answer: str) -> Dict[str, Any]:
             "communication": 30,
             "problemSolving": 20,
             "creativity": 20,
-            "idealAnswer": f"An ideal answer for this question directly explains the key technical principles, architecture patterns, and practical trade-offs involved in '{question}'. It provides specific examples, explains 'why' a particular solution is chosen, and mentions performance/security implications.",
+            "idealAnswer": f"An ideal answer for '{question}' directly explains the fundamental concepts, practical patterns, and trade-offs involved.",
             "keyPointsCovered": [],
             "keyPointsMissed": [
-                "Did not provide an explanation of core concepts",
-                "Omitted technical details and architecture patterns",
-                "Lacked concrete examples or trade-offs"
+                "Did not explain foundational concepts",
+                "Omitted technical details and trade-offs"
             ],
-            "feedback": "The response was incomplete or did not address the core question. Make sure to attempt every question by structuring your thoughts and explaining fundamental concepts even if you are unsure of the advanced details.",
+            "feedback": "The response was brief or incomplete. Attempt every question by structuring your thoughts and explaining core principles.",
             "improvements": [
-                "Break down the question into key components before answering.",
-                "Explain the theoretical fundamentals if you don't know the exact syntax.",
-                "Use the STAR method to structure your response."
+                "Break down the question into clear sub-topics before answering.",
+                "Provide concrete examples or architectural trade-offs.",
+                "Structure your response with clear bullet points or steps."
             ]
         }
 
-    # Evaluate answer content
     tech_keywords = ["database", "cache", "redis", "scale", "api", "async", "index", "performance", "security", "token", "query", "service", "queue", "architecture"]
     matches = sum(1 for kw in tech_keywords if kw in ans_clean.lower())
     base_score = min(92, max(55, 60 + matches * 5 + min(15, word_count // 6)))
@@ -294,178 +224,212 @@ def _fallback_feedback(question: str, answer: str) -> Dict[str, Any]:
         "communication": min(95, base_score + 2),
         "problemSolving": base_score,
         "creativity": min(95, base_score - 3),
-        "idealAnswer": f"To master '{question}', an exceptional candidate outlines the high-level architecture, explains the core mechanism clearly, provides a concrete implementation example, and discusses trade-offs such as latency vs throughput, security constraints, and caching strategies.",
+        "idealAnswer": f"To master '{question}', an exceptional candidate outlines the architecture, explains the core mechanism, and discusses scalability and security trade-offs.",
         "keyPointsCovered": [
             "Addressed the core premise of the question",
-            "Demonstrated foundational understanding of the concept"
+            "Demonstrated practical understanding"
         ],
         "keyPointsMissed": [
-            "Could expand on edge cases and failure handling",
-            "Omitted performance benchmarking metrics"
+            "Could elaborate further on edge cases and metrics"
         ],
-        "feedback": "Solid answer with good technical grounding. Adding specific real-world metrics, architecture trade-offs, and failure recovery examples will make your response even stronger.",
+        "feedback": "Solid conceptual understanding. To elevate your response, discuss real-world edge cases and concrete performance benchmarks.",
         "improvements": [
-            "Quantify your results with specific metrics (e.g. 'reduced latency by 35%').",
-            "Discuss potential trade-offs and edge-case handling.",
-            "Structure your technical answers with clear step-by-step logic."
-        ]
-    }
-
-
-
-def _fallback_summary(role: str, questions: List[Dict[str, Any]]) -> Dict[str, Any]:
-    scores = [q.get("feedback", {}).get("score", 75) for q in questions if q.get("feedback")]
-    avg_score = int(sum(scores) / len(scores)) if scores else 80
-    return {
-        "overallScore": avg_score,
-        "summary": f"The candidate demonstrated strong capability and domain understanding for the {role} position. Communication was clear throughout the interview turns with good conceptual grasp.",
-        "strengths": [
-            "Clear technical explanations and good communication",
-            "Strong understanding of core fundamentals",
-            "Logical step-by-step problem-solving method"
-        ],
-        "weaknesses": [
-            "Could elaborate further on performance trade-offs",
-            "Add more production-scale examples"
-        ],
-        "recommendations": [
-            "Practice structuring answers using the STAR method",
-            "Deep-dive into distributed systems concepts",
-            "Review edge-case error handling and testing",
-            "Participate in timed mock interview drills",
-            "Highlight measurable impact and business value"
+            "Mention production monitoring and performance metrics.",
+            "Discuss scalability and resilience trade-offs.",
+            "Structure behavioral responses using the STAR method."
         ]
     }
 
 
 # ==========================================
-# AGENT NODES
+# ASYNC GRAPH NODES POWERED BY AI ROUTER
 # ==========================================
 
-async def interview_node(state: InterviewState) -> Dict[str, Any]:
-    """Node: Generates interview questions."""
+async def generate_questions_node(state: InterviewState) -> Dict[str, Any]:
+    """Generates structured interview questions using AI Provider Router (Groq fast primary, Gemini fallback)."""
     role = state.get("role", "Software Engineer")
-    interview_type = state.get("type", "technical")
+    itype = state.get("type", "technical")
     use_resume = state.get("useResume", False)
     resume = state.get("resume", {})
 
-    api_key = settings.GROQ_API_KEY
-    if not api_key or "placeholder" in api_key:
-        return {"questions": _fallback_questions(role, interview_type)}
+    prompt = get_hr_interview_prompt(role, use_resume, resume) if itype.lower() == "hr" else get_technical_interview_prompt(role, use_resume, resume)
 
     try:
-        llm = get_llm()
-        prompt = (
-            get_hr_interview_prompt(role, use_resume, resume)
-            if interview_type.lower() == "hr"
-            else get_technical_interview_prompt(role, use_resume, resume)
-        )
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
-        content = re.sub(r"^```(?:json)?\n?", "", response.content.strip(), flags=re.MULTILINE)
-        content = re.sub(r"\n?```$", "", content, flags=re.MULTILINE).strip()
-        questions = json.loads(content)
-        return {"questions": questions}
+        ai_res = await ai_router.execute(AIRequest(
+            task_type=TaskType.FAST_INTERVIEW_QUESTION,
+            prompt=prompt,
+            system_prompt="You are a principal technical recruiter and hiring bar-raiser.",
+            json_mode=True,
+            temperature=0.2,
+        ))
+
+        questions = None
+        if ai_res.success and ai_res.parsed_json:
+            if isinstance(ai_res.parsed_json, list):
+                questions = ai_res.parsed_json
+            elif isinstance(ai_res.parsed_json, dict):
+                questions = ai_res.parsed_json.get("questions", None) or list(ai_res.parsed_json.values())[0]
+
+        if not questions or not isinstance(questions, list) or len(questions) < 3:
+            raw = ai_res.content
+            match = re.search(r"\[\s*\{[\s\S]*\}\s*\]", raw)
+            if match:
+                questions = json.loads(match.group(0))
+
+        if questions and isinstance(questions, list):
+            # Normalize schema
+            normalized = []
+            for q in questions[:6]:
+                if isinstance(q, str):
+                    normalized.append({
+                        "question": q,
+                        "difficulty": "medium",
+                        "timer": 90,
+                        "topic": "General",
+                    })
+                elif isinstance(q, dict):
+                    normalized.append({
+                        "question": q.get("question", "Explain your technical approach."),
+                        "difficulty": q.get("difficulty", "medium"),
+                        "timer": int(q.get("timer", 90)),
+                        "topic": q.get("topic", "General"),
+                    })
+            if normalized:
+                return {"questions": normalized}
+
+
     except Exception as e:
-        logger.error(f"Error in interview_node: {e}")
-        return {"questions": _fallback_questions(role, interview_type)}
+        logger.warning(f"AI question generation notice ({e}), applying resilient fallback.")
+
+    return {"questions": _fallback_questions(role, itype)}
 
 
-async def feedback_node(state: InterviewState) -> Dict[str, Any]:
-    """Node: Evaluates user's answer to the current question."""
+async def evaluate_answer_node(state: InterviewState) -> Dict[str, Any]:
+    """Evaluates candidate answer using AI Provider Router (Groq fast primary, Gemini fallback)."""
     question = state.get("question", "")
     answer = state.get("answer", "")
     difficulty = state.get("difficulty", "medium")
 
-    api_key = settings.GROQ_API_KEY
-    if not api_key or "placeholder" in api_key:
-        return {"feedback": _fallback_feedback(question, answer)}
+    prompt = get_feedback_prompt(question, answer, difficulty)
 
     try:
-        llm = get_llm()
-        prompt = get_feedback_prompt(question, answer, difficulty)
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
-        content = re.sub(r"^```(?:json)?\n?", "", response.content.strip(), flags=re.MULTILINE)
-        content = re.sub(r"\n?```$", "", content, flags=re.MULTILINE).strip()
-        feedback = json.loads(content)
-        return {"feedback": feedback}
+        ai_res = await ai_router.execute(AIRequest(
+            task_type=TaskType.FAST_EVALUATION,
+            prompt=prompt,
+            system_prompt="You are an expert hiring bar-raiser evaluating interview answers.",
+            json_mode=True,
+            temperature=0.1,
+        ))
+
+        if ai_res.success and ai_res.parsed_json and isinstance(ai_res.parsed_json, dict):
+            parsed = ai_res.parsed_json
+            # Guarantee required fields
+            return {
+                "feedback": {
+                    "score": int(parsed.get("score", 75)),
+                    "correctness": int(parsed.get("correctness", 75)),
+                    "clarity": int(parsed.get("clarity", 75)),
+                    "relevance": int(parsed.get("relevance", 75)),
+                    "detail": int(parsed.get("detail", 70)),
+                    "efficiency": int(parsed.get("efficiency", 75)),
+                    "communication": int(parsed.get("communication", 80)),
+                    "problemSolving": int(parsed.get("problemSolving", 75)),
+                    "creativity": int(parsed.get("creativity", 70)),
+                    "idealAnswer": str(parsed.get("idealAnswer", "")),
+                    "keyPointsCovered": parsed.get("keyPointsCovered", []),
+                    "keyPointsMissed": parsed.get("keyPointsMissed", []),
+                    "feedback": str(parsed.get("feedback", "Answer recorded.")),
+                    "improvements": parsed.get("improvements", []),
+                }
+            }
     except Exception as e:
-        logger.error(f"Error in feedback_node: {e}")
-        return {"feedback": _fallback_feedback(question, answer)}
+        logger.warning(f"AI answer evaluation notice ({e}), applying heuristic evaluation.")
+
+    return {"feedback": _fallback_feedback(question, answer)}
 
 
-async def summary_node(state: InterviewState) -> Dict[str, Any]:
-    """Node: Generates overall interview report."""
+async def generate_summary_node(state: InterviewState) -> Dict[str, Any]:
+    """Generates comprehensive final report using Gemini deep reasoning with Groq fallback."""
     role = state.get("role", "Software Engineer")
-    interview_type = state.get("type", "technical")
+    itype = state.get("type", "technical")
     questions = state.get("questions", [])
 
-    api_key = settings.GROQ_API_KEY
-    if not api_key or "placeholder" in api_key:
-        return {"report": _fallback_summary(role, questions)}
+    prompt = get_summary_prompt(role, itype, questions)
 
     try:
-        llm = get_llm()
-        prompt = get_summary_prompt(role, interview_type, questions)
-        response = await llm.ainvoke([HumanMessage(content=prompt)])
-        content = re.sub(r"^```(?:json)?\n?", "", response.content.strip(), flags=re.MULTILINE)
-        content = re.sub(r"\n?```$", "", content, flags=re.MULTILINE).strip()
-        report = json.loads(content)
-        return {"report": report}
+        ai_res = await ai_router.execute(AIRequest(
+            task_type=TaskType.FINAL_REPORT,
+            prompt=prompt,
+            system_prompt="You are an executive talent director writing a comprehensive candidate evaluation report.",
+            json_mode=True,
+            temperature=0.2,
+        ))
+
+        if ai_res.success and ai_res.parsed_json and isinstance(ai_res.parsed_json, dict):
+            return {"report": ai_res.parsed_json}
     except Exception as e:
-        logger.error(f"Error in summary_node: {e}")
-        return {"report": _fallback_summary(role, questions)}
+        logger.warning(f"AI summary report notice ({e}), generating fallback summary.")
+
+    # Fallback summary calculation
+    scores = [q.get("score", 75) for q in questions if "score" in q]
+    avg_score = round(sum(scores) / len(scores)) if scores else 75
+    return {
+        "report": {
+            "overallScore": avg_score,
+            "summary": f"The candidate completed the {role} interview with an overall score of {avg_score}%. They demonstrated good communication and foundational principles, with opportunities for deeper optimization.",
+            "strengths": [
+                "Good communication and structured thinking",
+                "Demonstrated understanding of core domain principles",
+                "Positive engagement with questions"
+            ],
+            "weaknesses": [
+                "Could provide deeper quantifiable production metrics",
+                "Opportunity to expand on edge case handling"
+            ],
+            "recommendations": [
+                "Practice system design and architecture drills",
+                "Review core performance profiling and caching patterns",
+                "Structure situational answers using the STAR format",
+                "Prepare quantifiable impact metrics for past projects",
+                "Deep-dive into database scaling and query optimization"
+            ],
+            "hiringRecommendation": "Hire" if avg_score >= 75 else "Lean Hire"
+        }
+    }
 
 
 # ==========================================
-# ROUTER & GRAPH
+# GRAPH ASSEMBLY
 # ==========================================
 
-def start_router(state: InterviewState) -> str:
+workflow = StateGraph(InterviewState)
+
+workflow.add_node("generate_questions", generate_questions_node)
+workflow.add_node("evaluate_answer", evaluate_answer_node)
+workflow.add_node("generate_summary", generate_summary_node)
+
+def route_action(state: InterviewState):
     action = state.get("action", "start")
     if action == "start":
-        return "interviewAgent"
+        return "generate_questions"
     elif action == "feedback":
-        return "feedbackAgent"
-    return END
+        return "evaluate_answer"
+    elif action == "summary":
+        return "generate_summary"
+    return "generate_questions"
 
+workflow.add_conditional_edges(
+    START,
+    route_action,
+    {
+        "generate_questions": "generate_questions",
+        "evaluate_answer": "evaluate_answer",
+        "generate_summary": "generate_summary",
+    }
+)
 
-def feedback_router(state: InterviewState) -> str:
-    if state.get("completed", False):
-        return "summaryAgent"
-    return END
+workflow.add_edge("generate_questions", END)
+workflow.add_edge("evaluate_answer", END)
+workflow.add_edge("generate_summary", END)
 
-
-def create_interview_graph():
-    builder = StateGraph(InterviewState)
-
-    builder.add_node("interviewAgent", interview_node)
-    builder.add_node("feedbackAgent", feedback_node)
-    builder.add_node("summaryAgent", summary_node)
-
-    builder.add_conditional_edges(
-        START,
-        start_router,
-        {
-            "interviewAgent": "interviewAgent",
-            "feedbackAgent": "feedbackAgent",
-        },
-    )
-
-    builder.add_edge("interviewAgent", END)
-
-    builder.add_conditional_edges(
-        "feedbackAgent",
-        feedback_router,
-        {
-            "summaryAgent": "summaryAgent",
-            END: END,
-        },
-    )
-
-    builder.add_edge("summaryAgent", END)
-
-    return builder.compile()
-
-
-# Singleton compiled graph
-interview_graph = create_interview_graph()
+interview_graph = workflow.compile()

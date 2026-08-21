@@ -87,13 +87,23 @@ async def start_interview(
     # Ensure default structure on questions
     formatted_questions = []
     for q in questions:
-        formatted_questions.append({
-            "question": q.get("question", ""),
-            "difficulty": q.get("difficulty", "easy"),
-            "timer": q.get("timer", 90),
-            "userAnswer": "",
-            "feedback": {},
-        })
+        if isinstance(q, str):
+            formatted_questions.append({
+                "question": q,
+                "difficulty": "easy",
+                "timer": 90,
+                "userAnswer": "",
+                "feedback": {},
+            })
+        elif isinstance(q, dict):
+            formatted_questions.append({
+                "question": q.get("question", ""),
+                "difficulty": q.get("difficulty", "easy"),
+                "timer": q.get("timer", 90),
+                "userAnswer": "",
+                "feedback": {},
+            })
+
 
     interview_id = str(uuid.uuid4())
     db_payload = {
@@ -218,11 +228,23 @@ async def submit_answer(
 
     feedback_data = result.get("feedback", {})
     current_q["feedback"] = feedback_data
+    current_q["score"] = feedback_data.get("score", 75)
     interview["current_question"] = curr_idx + 1
 
-    # 5. Handle completion
+    # 5. Handle completion & Gemini Deep Summary
     if completed:
-        report = result.get("report", {})
+        try:
+            summary_res = await interview_graph.ainvoke({
+                "action": "summary",
+                "role": interview.get("role", "Software Engineer"),
+                "type": interview.get("type", "technical"),
+                "questions": questions,
+            })
+            report = summary_res.get("report", {})
+        except Exception as sum_err:
+            logger.warning(f"Summary node fallback notice: {sum_err}")
+            report = {}
+
         interview["status"] = "completed"
         interview["overall_score"] = report.get("overallScore", feedback_data.get("score", 75))
         interview["summary"] = report.get("summary", "")
@@ -230,7 +252,7 @@ async def submit_answer(
         interview["weaknesses"] = report.get("weaknesses", [])
         interview["recommendations"] = report.get("recommendations", [])
 
-    # 6. Save update to Supabase
+    # 6. Save update to Supabase and cache active session in Redis
     update_payload = {
         "questions": questions,
         "current_question": interview["current_question"],
@@ -248,6 +270,8 @@ async def submit_answer(
         logger.warning(f"Supabase update failed: {e}")
         _mock_interviews_db[body.interviewId] = interview
 
+    # Redis active session persistence
+    await set_cache(f"interview:session:{body.interviewId}", interview, ttl=24 * 3600)
     await delete_cache(f"interviews:{user_id}")
 
     mapped_interview = _map_interview_from_db(interview)
@@ -259,12 +283,11 @@ async def submit_answer(
             "interview": mapped_interview,
         }
 
-    next_question = questions[interview["current_question"]]
     return {
         "success": True,
         "completed": False,
         "currentQuestion": interview["current_question"],
-        "question": next_question,
+        "question": questions[interview["current_question"]],
         "feedback": feedback_data,
     }
 

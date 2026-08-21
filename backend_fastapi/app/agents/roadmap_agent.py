@@ -3,184 +3,192 @@ import re
 import urllib.parse
 import logging
 from typing import Dict, Any, List, Optional
-from langchain_core.messages import SystemMessage, HumanMessage
-from app.core.llm import get_llm
-from app.config import settings
+from app.ai.provider_router import ai_router
+from app.ai.schemas import TaskType, AIRequest
 
 logger = logging.getLogger("fresherai.roadmap_agent")
 
 ROADMAP_SYSTEM_PROMPT = """
-You are an Expert Career Mentor, Senior Software Architect, and Learning Roadmap Generator.
+You are a Principal Technical Architect, Engineering Mentor, and Career Strategist.
+Generate a structured, industry-tailored learning roadmap to help a candidate achieve their target role and salary package.
 
-Your task is to generate a highly personalized, industry-standard roadmap that guides a candidate to achieve their target role and salary package.
+Role: {role}
+Target Package: {target_package}
+Candidate Resume Context:
+{resume_context}
 
-Instructions:
-1. Carefully analyze candidate skills and missing skills if resume is provided.
-2. If resume is provided:
-   - Focus on missing skills and advanced concepts.
-   - Build upon the candidate's existing foundation.
-3. If no resume is provided:
-   - Generate a comprehensive roadmap from fundamentals to advanced production concepts.
-4. Structure 8 to 12 progressive modules in logical learning order.
-5. Provide concise 2-3 line descriptions for each module.
-6. Return ONLY valid JSON matching the format below. No markdown formatting.
-
-Format:
-{
-  "title": "Mastery Roadmap for Target Role",
-  "targetPackage": "Target Package",
+RULES:
+1. Generate 6 to 8 progressive modules structured from foundations to production mastery.
+2. For each module provide:
+   - "title": Clear descriptive module name.
+   - "duration": e.g. "2 Weeks".
+   - "difficulty": "Easy", "Medium", or "Hard".
+   - "description": Concise description (2-3 sentences).
+   - "topics": Array of 3-5 core technical subtopics.
+   - "projects": Array of 1-2 portfolio projects to build.
+   - "interviewImportance": "High", "Critical", or "Medium".
+3. Return ONLY valid JSON matching this schema:
+{{
+  "title": "Mastery Roadmap for {role}",
+  "targetPackage": "{target_package}",
   "duration": "12 Weeks",
   "level": "Intermediate",
-  "modules": [
-    {
-      "title": "Module Title",
-      "duration": "1 Week",
-      "difficulty": "Easy",
-      "description": "Concise description of key concepts and projects."
-    }
-  ]
-}
-
-Difficulty must be EXACTLY: Easy, Medium, or Hard.
-Level must be EXACTLY: Beginner, Intermediate, or Advanced.
+  "modules": []
+}}
 """
 
 
 def _generate_fallback_roadmap(role: str, target_package: str, resume: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Provides high-quality realistic fallback roadmap when Groq API key is not active."""
+    """Provides high-quality realistic fallback roadmap when offline."""
     modules = [
         {
-            "title": f"{role} Core Fundamentals & Architecture",
+            "title": f"{role} Core Fundamentals & Clean Architecture",
             "duration": "2 Weeks",
             "difficulty": "Easy",
-            "description": f"Master the essential building blocks, language fundamentals, and clean code principles required for a {role}."
+            "description": f"Master essential language fundamentals, design patterns, and algorithmic foundations required for a {role}.",
+            "topics": ["Language Fundamentals", "Design Patterns", "Clean Code", "Data Structures"],
+            "projects": ["Core CLI Application", "Unit Test Suite"],
+            "interviewImportance": "Critical",
         },
         {
-            "title": "Modern Frontend & Component State Management",
+            "title": "Modern Frontend & Component Architecture",
             "duration": "2 Weeks",
             "difficulty": "Medium",
-            "description": "Build interactive, accessible user interfaces using React, component life-cycle patterns, and centralized state management."
+            "description": "Build interactive, accessible, and responsive user interfaces with component state management.",
+            "topics": ["React / Next.js", "State Management", "Tailwind CSS", "Web Performance"],
+            "projects": ["Dynamic SaaS Dashboard"],
+            "interviewImportance": "High",
         },
         {
-            "title": "High-Performance Backend APIs with FastAPI & REST",
+            "title": "High-Throughput Backend APIs & Microservices",
             "duration": "2 Weeks",
             "difficulty": "Medium",
-            "description": "Design secure, async RESTful APIs, request validation with Pydantic, and session middleware."
+            "description": "Design asynchronous RESTful endpoints, request validation, authentication, and error handling.",
+            "topics": ["FastAPI / Node.js", "Async I/O", "JWT Auth", "Pydantic Schemas"],
+            "projects": ["Scalable Authentication & API Gateway"],
+            "interviewImportance": "Critical",
         },
         {
-            "title": "Relational Data Modeling & PostgreSQL / Supabase",
+            "title": "Database Modeling, Migrations & Indexing",
             "duration": "2 Weeks",
             "difficulty": "Medium",
-            "description": "Implement efficient schema design, database migrations, indexes, JSONB querying, and transactions."
+            "description": "Implement relational schemas, transactions, connection pooling, and complex SQL queries.",
+            "topics": ["PostgreSQL / Supabase", "Query Profiling", "Transactions", "Migrations"],
+            "projects": ["E-Commerce Data Store"],
+            "interviewImportance": "Critical",
         },
         {
-            "title": "Caching Strategies & Performance Optimization (Redis)",
+            "title": "Caching Systems & Performance Engineering",
             "duration": "1 Week",
             "difficulty": "Hard",
-            "description": "Implement Redis caching, session stores, rate limiting, and database query optimization."
+            "description": "Integrate in-memory caching with Redis, session stores, rate limiting, and cache invalidation.",
+            "topics": ["Redis Caching", "Cache-Aside Pattern", "Rate Limiting", "Session Stores"],
+            "projects": ["Real-time Rate Limiter & Cache Layer"],
+            "interviewImportance": "High",
         },
         {
-            "title": "Cloud Infrastructure, Containerization & CI/CD",
+            "title": "Cloud Deployment, Containers & CI/CD Pipelines",
             "duration": "2 Weeks",
             "difficulty": "Hard",
-            "description": "Containerize full-stack services using Docker and orchestrate automated testing and deployment pipelines."
+            "description": "Containerize services with Docker and automate testing and deployment with CI/CD.",
+            "topics": ["Docker", "GitHub Actions", "Cloud Deployment", "Observability"],
+            "projects": ["Full-Stack Automated CI/CD Pipeline"],
+            "interviewImportance": "High",
         },
         {
-            "title": "Production Capstone Project & Mock Interview Prep",
+            "title": "Full-Stack Capstone & Live Mock Interview Prep",
             "duration": "1 Week",
             "difficulty": "Hard",
-            "description": "Deploy an end-to-end full-stack SaaS application with real-world authentication, payments, and system monitoring."
+            "description": "Deploy a complete production-grade SaaS application with live monitoring and end-to-end testing.",
+            "topics": ["System Integration", "Telemetry & Logs", "Live Mock Interviews"],
+            "projects": ["Production Fresher.AI Capstone"],
+            "interviewImportance": "Critical",
         }
     ]
 
-    # Attach resources
-    enriched_modules = []
+    # Attach verified search/documentation links
     for mod in modules:
         query_title = urllib.parse.quote(f"{mod['title']} tutorial")
         doc_query = urllib.parse.quote(f"{mod['title']} documentation")
-        enriched_modules.append({
-            **mod,
-            "youtube": f"https://www.youtube.com/results?search_query={query_title}",
-            "article": f"https://dev.to/search?q={doc_query}",
-        })
+        mod["videoUrl"] = f"https://www.youtube.com/results?search_query={query_title}"
+        mod["docUrl"] = f"https://www.google.com/search?q={doc_query}"
+        mod["youtube"] = mod["videoUrl"]
+        mod["docs"] = mod["docUrl"]
+        mod["article"] = mod["docUrl"]
 
     return {
-        "title": f"{role} Accelerated Career Roadmap",
+        "title": f"Mastery Roadmap for {role}",
         "targetPackage": target_package or "15 LPA",
         "duration": "12 Weeks",
         "level": "Intermediate",
-        "modules": enriched_modules,
+        "modules": modules,
     }
+
+
+async def generate_career_roadmap(
+    role: str,
+    target_package: str,
+    resume: Optional[Dict[str, Any]] = None,
+    use_resume: bool = False,
+    **kwargs,
+) -> Dict[str, Any]:
+    """Generates a structured career roadmap using AI Provider Router with verified resources."""
+    resume_context = "No resume provided. Generate complete industry progression."
+    if use_resume and resume:
+        skills = resume.get("skills", [])
+        missing = resume.get("missingSkills", [])
+        resume_context = f"Candidate Current Skills: {skills}\nIdentified Missing Skills: {missing}"
+
+    prompt = ROADMAP_SYSTEM_PROMPT.format(
+        role=role,
+        target_package=target_package or "15 LPA",
+        resume_context=resume_context,
+    )
+
+    try:
+        ai_res = await ai_router.execute(AIRequest(
+            task_type=TaskType.ROADMAP_GENERATION,
+            prompt=prompt,
+            system_prompt="You are a Principal Engineering Career Mentor.",
+            json_mode=True,
+            temperature=0.2,
+        ))
+
+        if ai_res.success and ai_res.parsed_json and isinstance(ai_res.parsed_json, dict):
+            parsed = ai_res.parsed_json
+            modules = parsed.get("modules", [])
+            for mod in modules:
+                query_title = urllib.parse.quote(f"{mod.get('title', role)} tutorial")
+                doc_query = urllib.parse.quote(f"{mod.get('title', role)} documentation")
+                mod["videoUrl"] = f"https://www.youtube.com/results?search_query={query_title}"
+                mod["docUrl"] = f"https://www.google.com/search?q={doc_query}"
+                mod["youtube"] = mod["videoUrl"]
+                mod["docs"] = mod["docUrl"]
+                mod["article"] = mod["docUrl"]
+
+
+            return {
+                "title": parsed.get("title", f"Mastery Roadmap for {role}"),
+                "targetPackage": parsed.get("targetPackage", target_package or "15 LPA"),
+                "duration": parsed.get("duration", "12 Weeks"),
+                "level": parsed.get("level", "Intermediate"),
+                "modules": modules,
+            }
+    except Exception as e:
+        logger.warning(f"AI roadmap generation notice ({e}), using fallback roadmap.")
+
+    return _generate_fallback_roadmap(role, target_package, resume)
+
 
 
 async def generate_roadmap(
     role: str,
     target_package: str,
-    use_resume: bool = False,
     resume: Optional[Dict[str, Any]] = None,
+    use_resume: bool = False,
+    **kwargs,
 ) -> Dict[str, Any]:
-    """
-    Generates a personalized career roadmap via Groq LLaMA 3.3 70B,
-    enriched with curated documentation and video learning links.
-    """
-    api_key = settings.GROQ_API_KEY
-    if not api_key or "placeholder" in api_key:
-        logger.info("Using heuristic roadmap fallback (no active GROQ_API_KEY).")
-        return _generate_fallback_roadmap(role, target_package, resume)
+    """Compatibility alias for generate_career_roadmap."""
+    return await generate_career_roadmap(role, target_package, resume, use_resume=use_resume, **kwargs)
 
-    try:
-        llm = get_llm()
-        resume_snippet = ""
-        if use_resume and resume:
-            resume_snippet = f"""
-Candidate Skills: {', '.join(resume.get('skills', []))}
-Missing Skills: {', '.join(resume.get('missingSkills', []))}
-Projects: {', '.join(resume.get('projects', []))}
-Summary: {resume.get('summary', '')}
-"""
 
-        user_content = f"""
-Target Role: {role}
-Target Package: {target_package}
-{resume_snippet}
-"""
-        messages = [
-            SystemMessage(content=ROADMAP_SYSTEM_PROMPT),
-            HumanMessage(content=user_content),
-        ]
-
-        response = await llm.ainvoke(messages)
-        content = re.sub(r"^```(?:json)?\n?", "", response.content.strip(), flags=re.MULTILINE)
-        content = re.sub(r"\n?```$", "", content, flags=re.MULTILINE).strip()
-
-        parsed_data = json.loads(content)
-
-        # Capitalize level and difficulty formatting
-        parsed_data["level"] = (parsed_data.get("level") or "Intermediate").capitalize()
-
-        raw_modules = parsed_data.get("modules", [])
-        enriched_modules = []
-
-        for mod in raw_modules:
-            title = mod.get("title", "Core Engineering Concept")
-            query_title = urllib.parse.quote(f"{title} tutorial")
-            doc_query = urllib.parse.quote(f"{title} official docs")
-            difficulty = (mod.get("difficulty") or "Medium").capitalize()
-            if difficulty not in ["Easy", "Medium", "Hard"]:
-                difficulty = "Medium"
-
-            enriched_modules.append({
-                "title": title,
-                "duration": mod.get("duration", "1 Week"),
-                "difficulty": difficulty,
-                "description": mod.get("description", ""),
-                "youtube": f"https://www.youtube.com/results?search_query={query_title}",
-                "article": f"https://dev.to/search?q={doc_query}",
-            })
-
-        parsed_data["modules"] = enriched_modules
-        return parsed_data
-
-    except Exception as e:
-        logger.error(f"Error generating AI roadmap ({e}). Falling back to heuristic roadmap.")
-        return _generate_fallback_roadmap(role, target_package, resume)

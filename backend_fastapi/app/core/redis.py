@@ -34,18 +34,21 @@ async def get_redis() -> Optional[aioredis.Redis]:
     return _redis_client
 
 
-async def set_cache(key: str, value: str, ex: Optional[int] = None) -> None:
+async def set_cache(key: str, value: Any, ex: Optional[int] = None, ttl: Optional[int] = None) -> None:
     """Sets cache in Redis with in-memory fallback."""
-    _local_cache_store[key] = value
+    expire = ex or ttl
+    val_str = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+    _local_cache_store[key] = val_str
     redis_client = await get_redis()
     if redis_client:
         try:
-            if ex:
-                await redis_client.set(key, value, ex=ex)
+            if expire:
+                await redis_client.set(key, val_str, ex=expire)
             else:
-                await redis_client.set(key, value)
+                await redis_client.set(key, val_str)
         except Exception as e:
             logger.warning(f"Error setting Redis cache key {key}: {e}")
+
 
 
 async def get_cache(key: str) -> Optional[str]:

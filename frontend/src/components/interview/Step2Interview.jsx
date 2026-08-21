@@ -1,100 +1,218 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  FiArrowRight, FiClock, FiMessageSquare,
-  FiMic, FiMicOff, FiCamera, FiCameraOff, FiCode,
+  FiArrowRight,
+  FiClock,
+  FiMessageSquare,
+  FiMic,
+  FiMicOff,
+  FiCamera,
+  FiCameraOff,
+  FiCode,
+  FiSquare,
+  FiPause,
+  FiPlay,
+  FiRotateCcw,
+  FiZap,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import Timer from "./Timer";
-import maleVideo   from "../../assets/male-ai.mp4";
+import maleVideo from "../../assets/male-ai.mp4";
 import femaleVideo from "../../assets/female-ai.mp4";
 import CodeEditorPanel from "./CodeEditorPanel";
-import { submitAnswer } from "../../api/interview.api";
+import { submitAnswer, transcribeAudio } from "../../api/interview.api";
+import { createAudioRecorder } from "../../services/audioRecorder";
 
 function Step2Interview({ interviewData, user }) {
   const navigate = useNavigate();
 
   // ── State ──
-  const [question, setQuestion]         = useState(interviewData.question);
+  const [question, setQuestion] = useState(interviewData.question);
   const [currentIndex, setCurrentIndex] = useState(interviewData.currentQuestion || 0);
-  const [answer, setAnswer]             = useState("");
-  const [feedback, setFeedback]         = useState(null);
-  const [loading, setLoading]           = useState(false);
-  const [timeLeft, setTimeLeft]         = useState(interviewData.question.timer || 60);
-  const [timerActive, setTimerActive]   = useState(true); // paused once the answer is submitted
+  const [answer, setAnswer] = useState("");
+  const [feedback, setFeedback] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(interviewData.question?.timer || 60);
+  const [timerActive, setTimerActive] = useState(true);
 
   // UI toggles
-  const [micOn, setMicOn]       = useState(true); // user's manual preference — only changed by the mic button
   const [cameraOn, setCameraOn] = useState(false);
   const [codeOpen, setCodeOpen] = useState(false);
 
-  // Speech
-  const [isAIPlaying, setIsAIPlaying]     = useState(false);
-  const [subtitle, setSubtitle]           = useState("");
+  // Advanced Voice Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [recordDuration, setRecordDuration] = useState(0);
+  const [transcribing, setTranscribing] = useState(false);
+  const [volumeLevel, setVolumeLevel] = useState(0);
+
+  // Speech Output
+  const [isAIPlaying, setIsAIPlaying] = useState(false);
+  const [subtitle, setSubtitle] = useState("");
   const [selectedVoice, setSelectedVoice] = useState(null);
-  const [voiceGender, setVoiceGender]     = useState("female");
-  const [introSpoken, setIntroSpoken]     = useState(false);
+  const [voiceGender, setVoiceGender] = useState("female");
+  const [introSpoken, setIntroSpoken] = useState(false);
 
   // Refs
-  const aiVideoRef    = useRef(null);
-  const userVideoRef  = useRef(null);
+  const aiVideoRef = useRef(null);
+  const userVideoRef = useRef(null);
+  const streamRef = useRef(null);
+  const audioRecorderRef = useRef(null);
+  const animFrameRef = useRef(null);
   const recognitionRef = useRef(null);
-  const streamRef      = useRef(null);
 
-  const videoSource  = voiceGender === "male" ? maleVideo : femaleVideo;
-  const userName     = user?.name || "there";
-  const userInitial  = userName.charAt(0).toUpperCase();
-  const progress     = ((currentIndex + 1) / interviewData.totalQuestions) * 100;
+  const videoSource = voiceGender === "male" ? maleVideo : femaleVideo;
+  const userName = user?.name || "Candidate";
+  const userInitial = userName.charAt(0).toUpperCase();
+  const totalQuestions = interviewData.totalQuestions || 5;
+  const progress = ((currentIndex + 1) / totalQuestions) * 100;
 
-  // Mic is only ever turned on/off by the button (micOn). While the AI is
-  // speaking we still pause the underlying recognition engine so it doesn't
-  // pick up the AI's own voice, but that's just visual/technical — the
-  // button's actual on/off state never changes on its own.
-  const micVisualOn = micOn && !isAIPlaying;
+  // ── Initialize Audio Recorder instance ──
+  useEffect(() => {
+    audioRecorderRef.current = createAudioRecorder();
+    return () => {
+      audioRecorderRef.current?.cleanup();
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, []);
 
-  // ── Load voices ──
+  // ── Load voices for Web Speech Synthesis ──
   useEffect(() => {
     const load = () => {
       const voices = window.speechSynthesis.getVoices();
       if (!voices.length) return;
-      const female = voices.find(v => /zira|samantha|female/i.test(v.name));
-      const male   = voices.find(v => /david|mark|male/i.test(v.name));
-      if (female)      { setSelectedVoice(female); setVoiceGender("female"); }
-      else if (male)   { setSelectedVoice(male);   setVoiceGender("male"); }
-      else             { setSelectedVoice(voices[0]); setVoiceGender("female"); }
+      const female = voices.find((v) => /zira|samantha|female|google uk english female/i.test(v.name));
+      const male = voices.find((v) => /david|mark|male|google uk english male/i.test(v.name));
+      if (female) {
+        setSelectedVoice(female);
+        setVoiceGender("female");
+      } else if (male) {
+        setSelectedVoice(male);
+        setVoiceGender("male");
+      } else {
+        setSelectedVoice(voices[0]);
+        setVoiceGender("female");
+      }
     };
     load();
     window.speechSynthesis.onvoiceschanged = load;
   }, []);
 
-  // ── Speech recognition ──
+  const browserSpeechTextRef = useRef("");
+
+  // ── Client-side live speech recognition fallback ──
   useEffect(() => {
-    if (!("webkitSpeechRecognition" in window)) return;
-    const rec = new window.webkitSpeechRecognition();
-    rec.lang = "en-US";
-    rec.continuous = true;
-    rec.interimResults = false;
-    rec.onresult = (e) => {
-      const t = e.results[e.results.length - 1][0].transcript;
-      setAnswer((prev) => prev + " " + t);
-    };
-    recognitionRef.current = rec;
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+    try {
+      const rec = new SpeechRec();
+      rec.lang = "en-US";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.onresult = (e) => {
+        let text = "";
+        for (let i = 0; i < e.results.length; i++) {
+          text += e.results[i][0].transcript + " ";
+        }
+        browserSpeechTextRef.current = text.trim();
+      };
+      recognitionRef.current = rec;
+    } catch (_) {}
   }, []);
 
-  const startMic = () => { try { recognitionRef.current?.start(); } catch {} };
-  const stopMic  = () => { recognitionRef.current?.stop(); };
+  // ── Voice Recording Controls ──
+  const startRecordingAudio = async () => {
+    try {
+      if (isAIPlaying) window.speechSynthesis.cancel();
+      browserSpeechTextRef.current = "";
+      try {
+        recognitionRef.current?.start();
+      } catch (_) {}
 
-  // Only place that changes the user's mic preference — the button.
-  const toggleMic = () => {
-    if (micOn) {
-      stopMic();
-    } else {
-      startMic();
+      await audioRecorderRef.current.start((secs) => setRecordDuration(secs));
+      setIsRecording(true);
+      setIsPaused(false);
+
+      // Start volume meter animation
+      const updateVolume = () => {
+        if (audioRecorderRef.current) {
+          const vol = audioRecorderRef.current.getVolume();
+          setVolumeLevel(vol);
+          animFrameRef.current = requestAnimationFrame(updateVolume);
+        }
+      };
+      updateVolume();
+    } catch (err) {
+      console.error("Audio recording start error:", err);
     }
-    setMicOn(!micOn);
   };
 
-  // ── Camera ──
+  const pauseRecordingAudio = () => {
+    audioRecorderRef.current?.pause();
+    setIsPaused(true);
+  };
+
+  const resumeRecordingAudio = () => {
+    audioRecorderRef.current?.resume();
+    setIsPaused(false);
+  };
+
+  const stopAndTranscribeAudio = async () => {
+    if (!audioRecorderRef.current) return;
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    try {
+      recognitionRef.current?.stop();
+    } catch (_) {}
+
+    setIsRecording(false);
+    setIsPaused(false);
+    setTranscribing(true);
+
+    try {
+      const { blob } = await audioRecorderRef.current.stop();
+      let transcribed = false;
+
+      if (blob && blob.size > 0) {
+        try {
+          const res = await transcribeAudio(blob, "candidate_response.webm");
+          if (res?.transcript) {
+            setAnswer((prev) => (prev.trim() ? prev + " " + res.transcript : res.transcript));
+            transcribed = true;
+          }
+        } catch (serverErr) {
+          console.warn("Server transcription notice, falling back to browser speech engine:", serverErr);
+        }
+      }
+
+      if (!transcribed && browserSpeechTextRef.current) {
+        setAnswer((prev) => (prev.trim() ? prev + " " + browserSpeechTextRef.current : browserSpeechTextRef.current));
+      }
+    } catch (err) {
+      console.error("Transcription error:", err);
+      if (browserSpeechTextRef.current) {
+        setAnswer((prev) => (prev.trim() ? prev + " " + browserSpeechTextRef.current : browserSpeechTextRef.current));
+      }
+    } finally {
+      setTranscribing(false);
+      setRecordDuration(0);
+      setVolumeLevel(0);
+    }
+  };
+
+  const cancelRecordingAudio = () => {
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    try {
+      recognitionRef.current?.stop();
+    } catch (_) {}
+    audioRecorderRef.current?.cancel();
+    setIsRecording(false);
+    setIsPaused(false);
+    setRecordDuration(0);
+    setVolumeLevel(0);
+  };
+
+
+  // ── Camera Toggle ──
   const toggleCamera = async () => {
     if (cameraOn) {
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -108,87 +226,80 @@ function Step2Interview({ interviewData, user }) {
         setTimeout(() => {
           if (userVideoRef.current) userVideoRef.current.srcObject = stream;
         }, 100);
-      } catch { setCameraOn(false); }
+      } catch {
+        setCameraOn(false);
+      }
     }
   };
 
-  // ── Speak ──
+  // ── Speak AI Question / Feedback ──
   const speakText = (text) =>
     new Promise((resolve) => {
-      if (!window.speechSynthesis || !selectedVoice || !text?.trim()) { resolve(); return; }
+      if (!window.speechSynthesis || !selectedVoice || !text?.trim()) {
+        resolve();
+        return;
+      }
 
-      // Cancel anything currently speaking first.
       window.speechSynthesis.cancel();
 
-      // Chrome has a known race condition where calling speak() right after
-      // cancel() causes the new utterance's onend to fire instantly without
-      // actually speaking. A tiny delay avoids that.
       setTimeout(() => {
         const utter = new SpeechSynthesisUtterance(
           text.replace(/,/g, ", ... ").replace(/\./g, ". ... ")
         );
-        utter.voice  = selectedVoice;
-        utter.rate   = 0.92;
-        utter.pitch  = 1.05;
+        utter.voice = selectedVoice;
+        utter.rate = 0.92;
+        utter.pitch = 1.05;
         utter.volume = 1;
         utter.onstart = () => {
           setIsAIPlaying(true);
-          // Pause recognition only while AI is actually speaking, so it
-          // doesn't capture the AI's own voice. This doesn't change micOn.
-          stopMic();
           aiVideoRef.current?.play();
         };
         utter.onend = () => {
           aiVideoRef.current?.pause();
           if (aiVideoRef.current) aiVideoRef.current.currentTime = 0;
           setIsAIPlaying(false);
-          // Resume listening only if the user's mic preference is still on.
-          if (micOn) startMic();
-          setTimeout(() => { setSubtitle(""); resolve(); }, 300);
+          setTimeout(() => {
+            setSubtitle("");
+            resolve();
+          }, 300);
         };
         setSubtitle(text);
         window.speechSynthesis.speak(utter);
       }, 150);
     });
 
-  // ── Welcome + First Question on voice load ──
+  // ── Welcome & Intro ──
   useEffect(() => {
     if (!selectedVoice || introSpoken) return;
     const runIntro = async () => {
       setIntroSpoken(true);
-      // Small pause after everything loads before the AI starts talking.
       await new Promise((r) => setTimeout(r, 1200));
       await speakText(`Welcome ${userName.split(" ")[0]}! Let's begin your interview.`);
       await new Promise((r) => setTimeout(r, 900));
-      await speakText(interviewData.question.question);
+      await speakText(interviewData.question?.question || "");
     };
     runIntro();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVoice]);
 
-  // ── Speak question when it changes (not first load) ──
+  // ── Speak on question change ──
   useEffect(() => {
-    if (!introSpoken || !selectedVoice) return;
+    if (!introSpoken || !selectedVoice || !question?.question) return;
     const speak = async () => {
       await new Promise((r) => setTimeout(r, 900));
       await speakText(question.question);
     };
     speak();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question]);
 
   // ── Sync interviewData ──
   useEffect(() => {
-    setQuestion(interviewData.question);
-    setCurrentIndex(interviewData.currentQuestion);
-    setTimeLeft(interviewData.question.timer || 60);
+    if (interviewData.question) {
+      setQuestion(interviewData.question);
+      setCurrentIndex(interviewData.currentQuestion || 0);
+      setTimeLeft(interviewData.question.timer || 60);
+      setTimerActive(true);
+    }
   }, [interviewData]);
-
-  // ── Timer reset on question change ──
-  useEffect(() => {
-    setTimeLeft(question.timer || 60);
-    setTimerActive(true);
-  }, [question]);
 
   // ── Timer countdown ──
   useEffect(() => {
@@ -197,67 +308,27 @@ function Step2Interview({ interviewData, user }) {
     return () => clearInterval(t);
   }, [timeLeft, timerActive]);
 
-  // ── Auto-submit when timer hits 0 ──
-  useEffect(() => {
-    if (timeLeft !== 0) return;
-    const autoSubmit = async () => {
-      await speakText("Time is up. Submitting your answer now.");
-      const finalAnswer = answer.trim() || "No answer provided. Time over.";
-
-      try {
-        setLoading(true);
-        const res = await submitAnswer({ interviewId: interviewData.interviewId, answer: finalAnswer });
-
-        if (res.completed) {
-          setFeedback(res.feedback || null);
-          await new Promise((r) => setTimeout(r, 700));
-          await speakText(
-            res.feedback?.feedback ||
-            "Great job! Your interview is complete. Preparing your report now."
-          );
-          setLoading(false);
-          navigate(`/interview/${interviewData.interviewId}/report`);
-          return;
-        }
-
-        setFeedback(res.feedback);
-        await new Promise((r) => setTimeout(r, 700));
-        await speakText(
-          res.feedback?.feedback ||
-          "Noted your answer. Let's move to the next question."
-        );
-
-        setLoading(false);
-        setQuestion(res.question);
-        setCurrentIndex(res.currentQuestion);
-        setTimeLeft(res.question?.timer || 60);
-        setTimerActive(true);
-        setAnswer("");
-        setFeedback(null);
-      } catch (err) {
-        console.error("Auto submit failed:", err);
-        setLoading(false);
-      }
-    };
-    autoSubmit();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft]);
-
-  // ── Submit ──
+  // ── Submit Answer ──
   const submit = async () => {
     if (!answer.trim() || loading) return;
 
+    if (isRecording) {
+      await stopAndTranscribeAudio();
+    }
+
     try {
-      setTimerActive(false); // stop countdown
+      setTimerActive(false);
       setLoading(true);
-      const res = await submitAnswer({ interviewId: interviewData.interviewId, answer: answer.trim() });
+      const res = await submitAnswer({
+        interviewId: interviewData.interviewId,
+        answer: answer.trim(),
+      });
 
       if (res.completed) {
         setFeedback(res.feedback || null);
         await new Promise((r) => setTimeout(r, 700));
         await speakText(
-          res.feedback?.feedback ||
-          "Great job! Your interview is complete. Preparing your report now."
+          res.feedback?.feedback || "Great job! Your interview is complete. Preparing your report now."
         );
         setLoading(false);
         navigate(`/interview/${interviewData.interviewId}/report`);
@@ -267,8 +338,7 @@ function Step2Interview({ interviewData, user }) {
       setFeedback(res.feedback);
       await new Promise((r) => setTimeout(r, 700));
       await speakText(
-        res.feedback?.feedback ||
-        "Noted your answer. Let's move to the next question."
+        res.feedback?.feedback || "Noted your answer. Let's move to the next question."
       );
 
       setLoading(false);
@@ -279,35 +349,29 @@ function Step2Interview({ interviewData, user }) {
       setAnswer("");
       setFeedback(null);
     } catch (err) {
-      console.error("Submit failed:", err);
+      console.error("Submit answer failed:", err);
       alert(err.response?.data?.detail || err.response?.data?.message || "Failed to submit answer. Please try again.");
       setLoading(false);
       setTimerActive(true);
     }
   };
 
-
-  // ── Code editor → append to answer ──
   const handleCodeSubmit = (code) => {
     setAnswer((prev) => {
-      const separator = prev.trim() ? "\n\n--- Code ---\n" : "--- Code ---\n";
+      const separator = prev.trim() ? "\n\n--- Code Solution ---\n" : "--- Code Solution ---\n";
       return prev + separator + code;
     });
     setCodeOpen(false);
   };
 
-  // ── Cleanup ──
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.stop();
-      window.speechSynthesis.cancel();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
-  }, []);
+  const formatSecs = (s) => {
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-3 sm:p-5">
-
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-3 sm:p-5 font-sans">
       {/* Code Editor Popup */}
       <CodeEditorPanel
         open={codeOpen}
@@ -319,14 +383,12 @@ function Step2Interview({ interviewData, user }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-5xl bg-[#0E1016] border border-white/10 rounded-2xl sm:rounded-[24px] overflow-hidden shadow-[0_0_60px_rgba(255,255,255,.03)] grid lg:grid-cols-[36%_64%]"
+        className="w-full max-w-5xl bg-[#0E1016] border border-white/10 rounded-3xl overflow-hidden shadow-2xl grid lg:grid-cols-[36%_64%]"
       >
-
         {/* ── LEFT: AI Video + User Camera + Controls ── */}
-        <div className="flex flex-col border-b lg:border-b-0 lg:border-r border-white/8 p-4 sm:p-5 gap-3">
-
-          {/* AI Video */}
-          <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+        <div className="flex flex-col border-b lg:border-b-0 lg:border-r border-white/8 p-4 sm:p-5 gap-3.5">
+          {/* AI Video Container */}
+          <div className="relative rounded-2xl overflow-hidden bg-black aspect-video border border-white/10 shadow-md">
             <video
               ref={aiVideoRef}
               src={videoSource}
@@ -337,40 +399,40 @@ function Step2Interview({ interviewData, user }) {
               className="w-full h-full object-cover"
             />
             {isAIPlaying && (
-              <div className="absolute bottom-2 left-2 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1">
-                <div className="flex gap-0.5 items-end h-3">
-                  {[1,2,3].map(i => (
+              <div className="absolute bottom-2 left-2 flex items-center gap-1.5 bg-black/70 backdrop-blur-md rounded-full px-3 py-1 border border-white/10">
+                <div className="flex gap-1 items-end h-3">
+                  {[1, 2, 3].map((i) => (
                     <motion.div
                       key={i}
-                      className="w-0.5 bg-white rounded-full"
-                      animate={{ height: ["4px","12px","4px"] }}
+                      className="w-0.5 bg-indigo-400 rounded-full"
+                      animate={{ height: ["4px", "12px", "4px"] }}
                       transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
                     />
                   ))}
                 </div>
-                <span className="text-[10px] text-white/80">AI Speaking</span>
+                <span className="text-[11px] font-bold text-white/90">AI Speaking</span>
               </div>
             )}
           </div>
 
-          {/* Reserved Subtitle Space */}
-          <div className="min-h-[52px] flex items-center">
+          {/* AI Subtitles */}
+          <div className="min-h-[48px] flex items-center">
             <AnimatePresence>
               {subtitle && (
                 <motion.div
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="w-full rounded-xl bg-white/5 border border-white/8 px-3 py-2"
+                  className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2"
                 >
-                  <p className="text-xs text-white/65 leading-relaxed text-center">{subtitle}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed text-center">{subtitle}</p>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          {/* User Camera / Initial Box */}
-          <div className="relative rounded-xl overflow-hidden bg-[#17181E] border border-white/8 aspect-video flex items-center justify-center">
+          {/* User Video Frame */}
+          <div className="relative rounded-2xl overflow-hidden bg-[#17181E] border border-white/8 aspect-video flex items-center justify-center">
             {cameraOn ? (
               <>
                 <video
@@ -380,176 +442,259 @@ function Step2Interview({ interviewData, user }) {
                   playsInline
                   className="w-full h-full object-cover scale-x-[-1]"
                 />
-                <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5">
-                  <span className="text-[10px] text-white/70">You</span>
+                <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-0.5 border border-white/10">
+                  <span className="text-[10px] font-semibold text-white/80">You</span>
                 </div>
               </>
             ) : (
               <div className="flex flex-col items-center gap-2">
-                <div className="w-14 h-14 rounded-full bg-white/10 border border-white/15 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-white">{userInitial}</span>
+                <div className="w-14 h-14 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-xl">
+                  {userInitial}
                 </div>
-                <span className="text-xs text-white/35">{userName.split(" ")[0]}</span>
+                <span className="text-xs text-slate-400">{userName.split(" ")[0]}</span>
               </div>
             )}
           </div>
 
-          {/* Controls */}
-          <div className="flex flex-col items-center gap-1.5 pt-1">
-            <div className="flex items-center justify-center gap-3">
-              <motion.button
-                whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.93 }}
-                onClick={toggleMic}
-                title={micOn ? "Mute mic" : "Unmute mic"}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
-                  micVisualOn ? "bg-white/10 border-white/15 text-white" : "bg-red-500/20 border-red-500/30 text-red-400"
-                }`}
-              >
-                {micVisualOn ? <FiMic size={15} /> : <FiMicOff size={15} />}
-              </motion.button>
+          {/* Media Action Buttons */}
+          <div className="flex items-center justify-center gap-3 pt-1">
+            <button
+              onClick={toggleCamera}
+              className={`p-2.5 rounded-xl border transition cursor-pointer ${
+                cameraOn ? "bg-white/15 border-white/20 text-white" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+              }`}
+              title="Toggle Camera"
+            >
+              {cameraOn ? <FiCamera size={16} /> : <FiCameraOff size={16} />}
+            </button>
 
-              <motion.button
-                whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.93 }}
-                onClick={toggleCamera}
-                title={cameraOn ? "Turn off camera" : "Turn on camera"}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
-                  cameraOn ? "bg-white/10 border-white/15 text-white" : "bg-white/5 border-white/10 text-white/45 hover:text-white/70"
-                }`}
-              >
-                {cameraOn ? <FiCamera size={15} /> : <FiCameraOff size={15} />}
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.93 }}
-                onClick={() => setCodeOpen(true)}
-                title="Open code editor"
-                className="w-10 h-10 rounded-xl flex items-center justify-center border bg-white/5 border-white/10 text-white/45 hover:text-white/70 hover:border-white/20 transition-all"
-              >
-                <FiCode size={15} />
-              </motion.button>
-            </div>
-
-            {/* Indicator: mic on but paused because AI is speaking — reserved space so layout doesn't jump */}
-            <div className="min-h-[14px] flex items-center justify-center">
-              {micOn && isAIPlaying && (
-                <span className="text-[10px] text-red-400/80">Mic paused — AI is speaking</span>
-              )}
-            </div>
-
-            {/* Hint: code editor usage */}
-            <span className="text-[10px] text-white/35 text-center">
-              Coding question? Use <FiCode size={9} className="inline -mt-0.5" /> to write &amp; add code
-            </span>
+            <button
+              onClick={() => setCodeOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 transition cursor-pointer text-xs font-semibold"
+              title="Open Coding Editor"
+            >
+              <FiCode size={14} className="text-indigo-400" />
+              <span>Code Editor</span>
+            </button>
           </div>
-
         </div>
 
-        {/* ── RIGHT: Question + Answer ── */}
-        <div className="flex flex-col p-4 sm:p-6">
-
-          {/* Header with timer on top right */}
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h2 className="text-base sm:text-lg font-semibold text-white">AI Interview</h2>
-              <div className="flex items-center gap-2 text-zinc-500 text-xs mt-0.5">
-                <FiClock size={11} />
-                <span>{question?.difficulty}</span>
+        {/* ── RIGHT: Question + Voice Waveform + Answer ── */}
+        <div className="flex flex-col p-4 sm:p-6 justify-between space-y-4">
+          {/* Question Header & Timer */}
+          <div>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <span>AI Mock Interview</span>
+                  <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    {question?.type || "Technical"}
+                  </span>
+                </h2>
+                <div className="flex items-center gap-2 text-slate-400 text-xs mt-1">
+                  <FiClock size={12} />
+                  <span>Difficulty: {question?.difficulty || "Medium"}</span>
+                </div>
               </div>
-            </div>
 
-            {/* Timer — top right */}
-            <div className="flex flex-col items-end gap-1.5 min-w-[110px]">
               <Timer timeLeft={timeLeft} totalTime={question?.timer || 60} />
             </div>
+
+            {/* Question Text Box */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              key={question?.question}
+              className="relative overflow-hidden rounded-2xl bg-[#17181E] border border-white/10 p-4 sm:p-5"
+            >
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                  <FiMessageSquare size={14} />
+                </div>
+                <p className="text-xs font-bold text-slate-400">
+                  Question {currentIndex + 1} of {totalQuestions}
+                </p>
+              </div>
+              <p className="text-slate-100 text-sm sm:text-base leading-relaxed font-medium">
+                {question?.question}
+              </p>
+            </motion.div>
           </div>
 
-          {/* Question Card */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            key={question?.question}
-            className="relative overflow-hidden rounded-xl bg-[#17181E] border border-white/8 p-4 sm:p-5 mb-4"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.04] via-transparent to-transparent pointer-events-none" />
-            <div className="relative flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center shrink-0">
-                <FiMessageSquare size={14} />
-              </div>
-              <p className="text-xs text-zinc-500">Question {currentIndex + 1}</p>
+          {/* Progress Bar */}
+          <div>
+            <div className="flex justify-between text-[11px] text-slate-400 mb-1">
+              <span>Interview Progress</span>
+              <span>{Math.round(progress)}%</span>
             </div>
-            <p className="relative text-white text-sm sm:text-base leading-7">{question.question}</p>
-          </motion.div>
-
-          {/* Progress — above answer input box */}
-          <div className="mb-3">
-            <div className="flex justify-between text-[10px] text-white/35 mb-1">
-              <span>Progress</span>
-              <span>{currentIndex + 1}/{interviewData.totalQuestions}</span>
-            </div>
-            <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
+            <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
               <div
-                className="h-full bg-white rounded-full transition-all duration-500"
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
           </div>
 
-          {/* Answer */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <label className="text-xs font-medium text-zinc-400 mb-1.5">Your Answer</label>
+          {/* ── Server-Side Voice Recorder Box ── */}
+          <div className="bg-[#17181E] border border-white/10 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <FiMic className="text-indigo-400" />
+                <span>Voice Answer (Server-Side Whisper STT)</span>
+              </span>
+
+              {isRecording && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-rose-400 animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  REC {formatSecs(recordDuration)}
+                </span>
+              )}
+            </div>
+
+            {/* Live Audio Waveform when recording */}
+            {isRecording && (
+              <div className="flex items-center justify-center gap-1 h-8 bg-black/40 rounded-xl px-4">
+                {[...Array(20)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-1 bg-indigo-400 rounded-full transition-all duration-75"
+                    style={{
+                      height: `${Math.max(4, Math.min(28, (volumeLevel / 255) * 32 * (0.4 + (i % 5) * 0.2)))}px`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Voice Action Buttons */}
+            <div className="flex items-center gap-2">
+              {!isRecording ? (
+                <button
+                  type="button"
+                  onClick={startRecordingAudio}
+                  disabled={transcribing}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition cursor-pointer disabled:opacity-50"
+                >
+                  <FiMic size={14} />
+                  <span>Start Voice Recording</span>
+                </button>
+              ) : (
+                <>
+                  {isPaused ? (
+                    <button
+                      type="button"
+                      onClick={resumeRecordingAudio}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition cursor-pointer"
+                    >
+                      <FiPlay size={12} />
+                      <span>Resume</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={pauseRecordingAudio}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition cursor-pointer"
+                    >
+                      <FiPause size={12} />
+                      <span>Pause</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={stopAndTranscribeAudio}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer shadow-xs"
+                  >
+                    <FiSquare size={12} />
+                    <span>Done &amp; Transcribe</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={cancelRecordingAudio}
+                    className="p-2 rounded-xl hover:bg-rose-500/20 text-rose-400 transition cursor-pointer"
+                    title="Cancel Recording"
+                  >
+                    <FiRotateCcw size={13} />
+                  </button>
+                </>
+              )}
+
+              {transcribing && (
+                <span className="text-xs text-indigo-400 font-semibold flex items-center gap-1.5 animate-pulse ml-auto">
+                  <div className="w-3 h-3 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
+                  Transcribing audio with Whisper AI...
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Editable Answer Textarea */}
+          <div className="flex-1 flex flex-col min-h-[110px]">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-300">
+                Your Answer (Editable before submitting)
+              </label>
+              <span className="text-[11px] text-slate-500">
+                {answer.length} characters
+              </span>
+            </div>
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
-              onKeyDown={(e) => { if (e.ctrlKey && e.key === "Enter") submitAnswer(); }}
-              rows={5}
-              placeholder="Write your answer here… or speak if mic is on"
-              className="flex-1 w-full rounded-xl bg-[#17181E] border border-white/8 p-4 text-sm text-white outline-none resize-none focus:border-white/25 transition placeholder-white/20"
+              onKeyDown={(e) => {
+                if (e.ctrlKey && e.key === "Enter") submit();
+              }}
+              rows={4}
+              placeholder="Speak using the voice recorder above or type your answer here..."
+              className="w-full rounded-2xl bg-[#17181E] border border-white/10 p-4 text-xs sm:text-sm text-slate-100 outline-none resize-none focus:border-indigo-500 transition placeholder:text-slate-500 leading-relaxed"
             />
           </div>
 
-          {/* Feedback — reserved space so the bottom bar doesn't jump */}
-          <div className="mt-3 min-h-[0px]">
-            <AnimatePresence>
-              {feedback && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 max-h-40 overflow-y-auto"
-                >
-                  <p className="text-xs uppercase tracking-widest text-green-400 mb-2">AI Feedback</p>
-                  <p className="text-sm text-zinc-300 leading-6">{feedback.feedback}</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          {/* AI Turn Feedback Modal / Banner */}
+          <AnimatePresence>
+            {feedback && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 max-h-32 overflow-y-auto"
+              >
+                <p className="text-[11px] uppercase tracking-wider font-extrabold text-emerald-400 mb-1 flex items-center gap-1">
+                  <FiZap size={13} />
+                  <span>AI Real-time Feedback</span>
+                </p>
+                <p className="text-xs text-slate-200 leading-relaxed">
+                  {feedback.feedback || "Answer evaluated successfully."}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Bottom */}
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/8">
-            <span className="text-xs text-zinc-600 hidden sm:block">
-              Press{" "}
-              <kbd className="mx-1 rounded bg-white/10 px-1.5 py-0.5 text-white text-[10px]">Ctrl+Enter</kbd>
-              to submit
+          {/* Bottom Submit Actions */}
+          <div className="flex items-center justify-between pt-2 border-t border-white/8">
+            <span className="text-xs text-slate-500 hidden sm:block">
+              Press <kbd className="mx-1 rounded bg-white/10 px-1.5 py-0.5 text-slate-300 text-[10px]">Ctrl+Enter</kbd> to submit answer
             </span>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               disabled={loading || !answer.trim()}
               onClick={submit}
-              className="ml-auto h-10 min-w-[150px] justify-center px-5 rounded-xl bg-white text-black text-sm font-semibold flex items-center gap-2 disabled:opacity-40 transition"
+              className="ml-auto h-11 min-w-[160px] px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition disabled:opacity-40 cursor-pointer"
             >
               {loading ? (
                 <>
-                  <div className="w-3.5 h-3.5 rounded-full border-2 border-black border-t-transparent animate-spin" />
-                  Submitting…
+                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  <span>Evaluating Answer...</span>
                 </>
               ) : (
-                <>Submit Answer <FiArrowRight size={15} /></>
+                <>
+                  <span>Submit Answer</span>
+                  <FiArrowRight size={16} />
+                </>
               )}
-            </motion.button>
+            </button>
           </div>
-
         </div>
       </motion.div>
     </div>
