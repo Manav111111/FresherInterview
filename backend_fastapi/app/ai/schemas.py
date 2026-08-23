@@ -12,7 +12,10 @@ class TaskType(str, Enum):
     RESUME_ATS_ANALYSIS = "resume_ats_analysis"
     ROADMAP_GENERATION = "roadmap_generation"
     VIDEO_STORYBOARD = "video_storyboard"
+    CHATBOT_RESPONSE = "chatbot_response"
+    LINKEDIN_POST_GENERATION = "linkedin_post_generation"
     GENERAL = "general"
+
 
 
 class AIProviderName(str, Enum):

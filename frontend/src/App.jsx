@@ -13,7 +13,7 @@ import InterviewReport from "./pages/InterviewReport";
 import SolutionVideo from "./pages/SolutionVideo";
 import Performance from "./pages/Performance";
 import { getCurrentUser } from "./api/user.api";
-
+import ChatbotWidget from "./components/ChatbotWidget";
 
 import { setResume } from "./redux/resumeSlice";
 import { getResume } from "./api/resume.api";
@@ -53,7 +53,6 @@ function App() {
     getUser();
   }, []);
 
-
   useEffect(() => {
     const fetchResume = async () => {
       try {
@@ -69,9 +68,6 @@ function App() {
     fetchResume();
   }, [dispatch]);
 
-
-
-
   if (loading) {
     return (
       <div className="fixed top-0 left-0 w-full z-[9999]">
@@ -81,107 +77,101 @@ function App() {
   }
 
   return (
-    <Routes>
+    <>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            user
+              ? <Navigate to="/dashboard" replace />
+              : <Home user={user} setUser={setUser} />
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            user
+              ? <Dashbord user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/performance"
+          element={
+            user
+              ? <Performance user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/interview"
+          element={
+            user
+              ? <InterviewStart user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/interview/:id"
+          element={
+            user
+              ? <InterviewPage user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/interview/:id/report"
+          element={
+            user
+              ? <InterviewReport user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/resume"
+          element={
+            user
+              ? <ResumeBuilder user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/roadmap"
+          element={
+            user
+              ? <Roadmap user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/scorer"
+          element={
+            user
+              ? <Scorer user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/pricing"
+          element={
+            user
+              ? <Pricing user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+        <Route
+          path="/solution-video"
+          element={
+            user
+              ? <SolutionVideo user={user} setUser={setUser} />
+              : <Navigate to="/" replace />
+          }
+        />
+      </Routes>
 
-      <Route
-        path="/"
-        element={
-          user
-            ? <Navigate to="/dashboard" replace />
-            : <Home user={user} setUser={setUser} />
-        }
-      />
-
-      <Route
-        path="/dashboard"
-        element={
-          user
-            ? <Dashbord user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-      <Route
-        path="/performance"
-        element={
-          user
-            ? <Performance user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-      <Route
-        path="/interview"
-        element={
-          user
-            ? <InterviewStart user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-
-
-      <Route
-        path="/interview/:id"
-        element={
-          user
-            ? <InterviewPage user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-
-      <Route
-        path="/interview/:id/report"
-        element={
-          user
-            ? <InterviewReport user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-
-
-
-      <Route
-        path="/resume"
-        element={
-          user
-            ? <ResumeBuilder user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-
-      <Route
-        path="/roadmap"
-        element={
-          user
-            ? <Roadmap user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-
-      <Route
-        path="/scorer"
-        element={
-          user
-            ? <Scorer user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-      <Route
-        path="/pricing"
-        element={
-          user
-            ? <Pricing user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-      <Route
-        path="/solution-video"
-        element={
-          user
-            ? <SolutionVideo user={user} setUser={setUser} />
-            : <Navigate to="/" replace />
-        }
-      />
-
-    </Routes>
+      {/* Global AI Assistant Floating Widget */}
+      <ChatbotWidget user={user} />
+    </>
   );
 }
 

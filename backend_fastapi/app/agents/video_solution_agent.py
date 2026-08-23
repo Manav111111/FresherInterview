@@ -4,38 +4,74 @@ import re
 from typing import Any, Dict, List, Optional
 from app.ai.provider_router import ai_router
 from app.ai.schemas import TaskType, AIRequest
+from app.agents.chatbot_agent import detect_query_intent, QueryIntent
 
 logger = logging.getLogger("fresherai.video_solution")
 
 
 def get_solution_prompt(question: str) -> str:
+    intent = detect_query_intent(question)
+    
+    intent_guidelines = ""
+    if intent == QueryIntent.THEORY_CONCEPTUAL:
+        intent_guidelines = """
+QUESTION TYPE: THEORY / CONCEPTUAL
+- DO NOT force fake mathematical calculations or "calculate" steps!
+- Structure scenes naturally:
+  * Scene 1: Definition & Primary Purpose (What is it?)
+  * Scene 2: Core Architecture & Essential Components (How is it built?)
+  * Scene 3: Operational Workflow / Mechanism (How does it work?)
+  * Scene 4: Key Advantages, Real-World Use Case & Summary Conclusion
+"""
+    elif intent == QueryIntent.MATHEMATICAL_NUMERICAL:
+        intent_guidelines = """
+QUESTION TYPE: MATHEMATICAL / NUMERICAL / CALCULATION
+- Show step-by-step mathematical reasoning!
+- Structure scenes logically:
+  * Scene 1: Given Formula & Governing Principle
+  * Scene 2: Step-by-Step Algebraic / Derivative Transformation
+  * Scene 3: Calculation & Intermediate Values
+  * Scene 4: Final Verified Numerical / Algebraic Result
+"""
+    elif intent == QueryIntent.DSA_ALGORITHM:
+        intent_guidelines = """
+QUESTION TYPE: DATA STRUCTURES & ALGORITHMS
+- Structure scenes:
+  * Scene 1: Problem Definition & Prerequisite Constraints (e.g., sorted array)
+  * Scene 2: Core Pointer / Divide-and-Conquer Strategy
+  * Scene 3: Iteration Execution & Space Reduction
+  * Scene 4: Final Time Complexity & Space Complexity Analysis
+"""
+    else:
+        intent_guidelines = """
+QUESTION TYPE: TECHNICAL TOPIC
+- Explain the governing principles clearly, provide concise whiteboard lines, and conclude with the optimal answer.
+"""
+
     return f"""
-You are an expert technical whiteboard educator, math/physics animator, and video director.
+You are an expert technical whiteboard educator, STEM animator, and video director.
 Create a rich, accurate, step-by-step whiteboard explanation video storyboard for the following question:
 
 Question: {question}
 
+{intent_guidelines}
+
 CRITICAL RULES:
-1. Provide 3 to 4 sequential, highly accurate, specific steps solving or explaining "{question}".
+1. Provide 3 to 4 sequential, highly accurate, specific whiteboard scenes for "{question}".
    DO NOT return generic placeholders like "analyze data flow" or "optimal solution verified".
-   Write the real formulas, equations, definitions, or code logic directly on screen!
-   For example, for Newton's 2nd Law (F = ma):
-     - Step 1: Definition of Force & Momentum: F = dp/dt
-     - Step 2: Constant Mass Derivation: F = m · a
-     - Step 3: SI Units & Meaning: Force (N) = Mass (kg) × Accel (m/s²)
-     - Step 4 / Final Answer: F = ma (Force equals mass times acceleration)
+   Write real formulas, definitions, architectural components, or algorithmic logic directly on screen!
 2. For each scene provide:
    - "id": integer 1, 2, 3...
    - "step": integer 1, 2, 3...
-   - "title": concise step name (e.g. "Core Law & Equation", "Derivation & Units", "Calculation Example")
-   - "content": EXACT text/math/code to write on the whiteboard canvas (e.g., "F = m · a (Force = Mass × Acceleration)")
+   - "title": concise step name (e.g. "Definition & Purpose", "Core Architecture", "Workflow", "Final Conclusion")
+   - "content": EXACT text/math/code to write on the whiteboard canvas (15 to 45 characters max for clean canvas rendering)
    - "narration": natural spoken voice explanation that explains EXACTLY what is written on screen in 1-2 clear, articulate sentences.
    - "duration": accurate duration in seconds for reading and writing (between 3.5 and 5.5 seconds)
    - "isFinal": boolean, true ONLY for the final answer scene
    - "animationType": "write"
    - "drawingCommands": Array of safe rendering tags (e.g. ["draw_text", "highlight", "show_formula"])
-3. "finalAnswer": The concise final conclusion or formula.
-4. "topic": Specific domain (e.g. "Classical Mechanics / Physics", "Data Structures & Algorithms", "Algebra & Calculus", "Computer Science")
+3. "finalAnswer": The concise final conclusion, formula, or complexity.
+4. "topic": Specific domain (e.g. "Containerization & DevOps", "Classical Mechanics / Physics", "Data Structures & Algorithms", "Calculus & Algebra")
 5. Return ONLY a valid JSON object matching this schema:
 {{
   "question": "{question}",
@@ -63,6 +99,117 @@ def _fallback_solution(question: str) -> Dict[str, Any]:
     """Provides high-quality realistic fallback solutions when offline."""
     q_lower = question.lower().strip()
 
+    # 1. Docker / Containerization (Theory)
+    if "docker" in q_lower or "container" in q_lower:
+        return {
+            "question": question,
+            "topic": "DevOps & Cloud Architecture",
+            "finalAnswer": "Docker packages code + dependencies into lightweight, isolated containers.",
+            "totalDuration": 16.5,
+            "scenes": [
+                {
+                    "id": 1,
+                    "step": 1,
+                    "title": "Definition & Purpose",
+                    "content": "OS-Level Virtualization Platform",
+                    "narration": "Docker is an open-source containerization platform that packages applications and dependencies together.",
+                    "duration": 4.2,
+                    "isFinal": False,
+                    "animationType": "write",
+                    "drawingCommands": ["draw_text", "highlight"]
+                },
+                {
+                    "id": 2,
+                    "step": 2,
+                    "title": "Core Architecture",
+                    "content": "Dockerfile -> Image -> Container",
+                    "narration": "Developers write a Dockerfile, build a portable image, and execute lightweight container instances.",
+                    "duration": 4.2,
+                    "isFinal": False,
+                    "animationType": "write",
+                    "drawingCommands": ["draw_text", "highlight"]
+                },
+                {
+                    "id": 3,
+                    "step": 3,
+                    "title": "Containers vs VMs",
+                    "content": "Shares Host OS Kernel (No Hypervisor Overhead)",
+                    "narration": "Unlike virtual machines that require full guest operating systems, Docker containers share the host kernel for instant startup.",
+                    "duration": 4.5,
+                    "isFinal": False,
+                    "animationType": "write",
+                    "drawingCommands": ["draw_text"]
+                },
+                {
+                    "id": 4,
+                    "step": 4,
+                    "title": "Final Summary",
+                    "content": "Build Once, Run Anywhere Consistently",
+                    "narration": "This eliminates environment drift, ensuring software runs identically across local development and cloud production.",
+                    "duration": 3.6,
+                    "isFinal": True,
+                    "animationType": "write",
+                    "drawingCommands": ["draw_text", "highlight"]
+                }
+            ]
+        }
+
+    # 2. Photosynthesis (Theory)
+    if "photosynthesis" in q_lower:
+        return {
+            "question": question,
+            "topic": "Plant Biology & Science",
+            "finalAnswer": "6CO₂ + 6H₂O + Sunlight -> C₆H₁₂O₆ + 6O₂",
+            "totalDuration": 16.5,
+            "scenes": [
+                {
+                    "id": 1,
+                    "step": 1,
+                    "title": "Core Process",
+                    "content": "Light Energy -> Chemical Energy",
+                    "narration": "Photosynthesis is the biological process by which green plants convert light energy into chemical energy.",
+                    "duration": 4.2,
+                    "isFinal": False,
+                    "animationType": "write",
+                    "drawingCommands": ["draw_text", "highlight"]
+                },
+                {
+                    "id": 2,
+                    "step": 2,
+                    "title": "Key Reactants",
+                    "content": "Sunlight + Carbon Dioxide + Water",
+                    "narration": "Chlorophyll inside chloroplasts captures photons while roots absorb water and leaves intake carbon dioxide.",
+                    "duration": 4.2,
+                    "isFinal": False,
+                    "animationType": "write",
+                    "drawingCommands": ["draw_text"]
+                },
+                {
+                    "id": 3,
+                    "step": 3,
+                    "title": "Chemical Transformation",
+                    "content": "6CO₂ + 6H₂O -> C₆H₁₂O₆ + 6O₂",
+                    "narration": "Through light and dark reactions, these inputs are synthesized into glucose and oxygen is released as a byproduct.",
+                    "duration": 4.3,
+                    "isFinal": False,
+                    "animationType": "write",
+                    "drawingCommands": ["draw_text", "show_formula"]
+                },
+                {
+                    "id": 4,
+                    "step": 4,
+                    "title": "Final Output",
+                    "content": "Produces Glucose (Energy) & Oxygen",
+                    "narration": "This provides organic fuel for plant growth while sustaining the Earth's oxygen supply.",
+                    "duration": 3.8,
+                    "isFinal": True,
+                    "animationType": "write",
+                    "drawingCommands": ["draw_text", "highlight"]
+                }
+            ]
+        }
+
+    # 3. Newton's 2nd Law (Physics/Math)
     if "newton" in q_lower or "f = ma" in q_lower or "second law" in q_lower:
         return {
             "question": question,
@@ -117,6 +264,7 @@ def _fallback_solution(question: str) -> Dict[str, Any]:
             ]
         }
 
+    # 4. Binary Search (Algorithm)
     if "binary search" in q_lower:
         return {
             "question": question,
@@ -171,6 +319,7 @@ def _fallback_solution(question: str) -> Dict[str, Any]:
             ]
         }
 
+    # 5. Algebra (Math)
     if any(c in q_lower for c in ["2x", "3x", "4x", "5x", "x +", "x -", "x =", "solve", "equation"]):
         return {
             "question": question,
@@ -225,18 +374,19 @@ def _fallback_solution(question: str) -> Dict[str, Any]:
             ]
         }
 
+    # Default Theory / Technical solution
     return {
         "question": question,
         "topic": "Technical Solution",
-        "finalAnswer": "Systematic Solution Derived",
+        "finalAnswer": "Core Concept Defined & Verified",
         "totalDuration": 16.0,
         "scenes": [
             {
                 "id": 1,
                 "step": 1,
-                "title": "Problem Statement",
-                "content": question[:70],
-                "narration": f"Let's break down this concept: {question[:60]}.",
+                "title": "Core Definition",
+                "content": question[:50],
+                "narration": f"Let's break down {question[:45]} clearly and concisely.",
                 "duration": 3.8,
                 "isFinal": False,
                 "animationType": "write",
@@ -245,31 +395,31 @@ def _fallback_solution(question: str) -> Dict[str, Any]:
             {
                 "id": 2,
                 "step": 2,
-                "title": "Core Formula & Principle",
-                "content": f"Apply core principles for {question[:40]}",
-                "narration": "We identify the governing principles, input parameters, and mathematical relationships.",
-                "duration": 4.2,
-                "isFinal": False,
-                "animationType": "write",
-                "drawingCommands": ["draw_text", "show_formula"]
-            },
-            {
-                "id": 3,
-                "step": 3,
-                "title": "Step-by-Step Derivation",
-                "content": "Execute step-by-step logic and calculations",
-                "narration": "Applying the systematic transformations yields the verified intermediate expressions.",
+                "title": "Architecture & Components",
+                "content": "Core Structure & Key Modules",
+                "narration": "We examine the foundational components, architectural layers, and operational mechanisms.",
                 "duration": 4.2,
                 "isFinal": False,
                 "animationType": "write",
                 "drawingCommands": ["draw_text", "highlight"]
             },
             {
+                "id": 3,
+                "step": 3,
+                "title": "Workflow & Execution",
+                "content": "Systematic Process & Data Flow",
+                "narration": "The system processes inputs through organized stages to produce reliable results.",
+                "duration": 4.2,
+                "isFinal": False,
+                "animationType": "write",
+                "drawingCommands": ["draw_text"]
+            },
+            {
                 "id": 4,
                 "step": 4,
-                "title": "Final Result",
-                "content": "Optimal Verified Solution",
-                "narration": "This establishes the complete, mathematically sound solution to the problem.",
+                "title": "Key Takeaways",
+                "content": "Essential Concept Mastered",
+                "narration": "This establishes the complete, production-ready understanding of the concept.",
                 "duration": 3.8,
                 "isFinal": True,
                 "animationType": "write",

@@ -92,6 +92,7 @@ from app.routes.roadmap import roadmap_router
 from app.routes.billing import billing_router
 from app.routes.video_solution import video_solution_router
 from app.routes.audio import audio_router
+from app.routes.chat import chat_router
 
 # Include routers
 app.include_router(auth_router, prefix="/api/auth")
@@ -101,6 +102,8 @@ app.include_router(interview_router, prefix="/api/interview")
 app.include_router(roadmap_router, prefix="/api/roadmap")
 app.include_router(billing_router, prefix="/api/billing")
 app.include_router(video_solution_router, prefix="/api/video")
+app.include_router(chat_router, prefix="/api/chat")
 app.include_router(audio_router)
+
 
 
