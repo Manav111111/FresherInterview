@@ -19,7 +19,6 @@ import WhiteboardCanvas from "../components/video-solution/WhiteboardCanvas";
 import VideoPlayerControls from "../components/video-solution/VideoPlayerControls";
 import VideoProgressTracker from "../components/video-solution/VideoProgressTracker";
 import { AudioNarrationEngine } from "../components/video-solution/AudioNarrationEngine";
-import { VideoRecorder } from "../components/video-solution/VideoRecorder";
 import { generateSolutionVideo } from "../api/video.api";
 import { logoutUser } from "../api/user.api";
 import { useNavigate } from "react-router-dom";
@@ -47,7 +46,6 @@ export default function SolutionVideo({ user, setUser }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [showTranscript, setShowTranscript] = useState(true);
 
   // References
@@ -75,7 +73,7 @@ export default function SolutionVideo({ user, setUser }) {
     (time) => {
       let accumulated = 0;
       for (const scene of scenes) {
-        const dur = scene.duration || 3.5;
+        const dur = scene.duration || 4.0;
         if (time >= accumulated && time < accumulated + dur) {
           return scene;
         }
@@ -130,23 +128,33 @@ export default function SolutionVideo({ user, setUser }) {
     };
   }, [isPlaying, videoData, totalDuration, getActiveScene]);
 
-  // Handle Play / Pause
+  // Handle Play / Pause with speech pause/resume sync
   const handlePlayPause = () => {
     if (currentTime >= totalDuration) {
       setCurrentTime(0);
       audioRef.current.reset();
+      setIsPlaying(true);
+      return;
     }
-    setIsPlaying(!isPlaying);
+
+    const willPlay = !isPlaying;
+    setIsPlaying(willPlay);
+    if (!willPlay) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.resume();
+    }
   };
 
   // Handle Seek / Scrub
   const handleSeek = (newTime) => {
     setCurrentTime(newTime);
-    const activeScene = getActiveScene(newTime);
-    if (isPlaying && activeScene) {
-      audioRef.current.speakScene(activeScene);
-    } else {
-      audioRef.current.stop();
+    audioRef.current.stop();
+    if (isPlaying) {
+      const activeScene = getActiveScene(newTime);
+      if (activeScene) {
+        audioRef.current.speakScene(activeScene);
+      }
     }
   };
 
@@ -197,7 +205,7 @@ export default function SolutionVideo({ user, setUser }) {
         setCurrentTime(0);
         setTimeout(() => {
           setIsPlaying(true);
-        }, 500);
+        }, 400);
       } else {
         throw new Error("Invalid response format from server.");
       }
@@ -212,52 +220,9 @@ export default function SolutionVideo({ user, setUser }) {
     }
   };
 
-  // Handle Real WebM Video Download
-  const handleDownloadVideo = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    if (!VideoRecorder.isSupported()) {
-      alert("Video recording is not supported in this browser.");
-      return;
-    }
-
-    setIsRecording(true);
-    setIsPlaying(false);
-    setCurrentTime(0);
-    audioRef.current.stop();
-
-    const recorder = new VideoRecorder(canvas);
-    try {
-      recorder.start();
-
-      // Play through the video at normal speed while recording
-      setIsPlaying(true);
-
-      const checkInterval = setInterval(async () => {
-        if (currentTime >= totalDuration) {
-          clearInterval(checkInterval);
-          setIsPlaying(false);
-          const result = await recorder.stop();
-          if (result?.blob) {
-            const cleanTitle = (videoData?.question || "solution")
-              .toLowerCase()
-              .replace(/[^a-z0-9]/g, "-")
-              .slice(0, 30);
-            recorder.downloadBlob(result.blob, `solution-${cleanTitle}.${result.extension}`);
-          }
-          setIsRecording(false);
-        }
-      }, 200);
-    } catch (err) {
-      console.error("Recording failed:", err);
-      setIsRecording(false);
-      alert("Recording failed: " + err.message);
-    }
-  };
-
   return (
     <div className="bg-[#F8F9FA] min-h-screen text-[#0A0A0A] font-sans flex">
+
       {/* App Sidebar Navigation */}
       <Sidebar
         user={user}
@@ -414,14 +379,13 @@ export default function SolutionVideo({ user, setUser }) {
                 currentTime={currentTime}
                 totalDuration={totalDuration}
                 isMuted={isMuted}
-                isRecording={isRecording}
                 onPlayPause={handlePlayPause}
                 onSeek={handleSeek}
                 onReplay={handleReplay}
                 onToggleMute={handleToggleMute}
                 onToggleFullscreen={handleToggleFullscreen}
-                onDownloadVideo={handleDownloadVideo}
               />
+
             </div>
 
             {/* Step-by-Step Breakdown Accordion */}

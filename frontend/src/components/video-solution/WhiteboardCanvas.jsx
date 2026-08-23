@@ -9,7 +9,7 @@ export default function WhiteboardCanvas({
   topic,
   scenes = [],
   currentTime = 0,
-  totalDuration = 15,
+  totalDuration = 16,
   canvasRef,
 }) {
   const localRef = useRef(null);
@@ -19,8 +19,8 @@ export default function WhiteboardCanvas({
   const timeline = scenes.map((scene, idx) => {
     const startTime = scenes
       .slice(0, idx)
-      .reduce((sum, s) => sum + (s.duration || 3.5), 0);
-    const duration = scene.duration || 3.5;
+      .reduce((sum, s) => sum + (s.duration || 4.0), 0);
+    const duration = scene.duration || 4.0;
     const endTime = startTime + duration;
     return {
       ...scene,
@@ -71,8 +71,8 @@ export default function WhiteboardCanvas({
 
     // Category / Topic pill
     ctx.fillStyle = "#6366F1";
-    ctx.font = "bold 13px 'Inter', sans-serif";
-    ctx.fillText((topic || "QUESTION / PROBLEM").toUpperCase(), paddingX, currentY);
+    ctx.font = "bold 13px 'Inter', system-ui, sans-serif";
+    ctx.fillText((topic || "TECHNICAL SOLUTION").toUpperCase(), paddingX, currentY);
 
     currentY += 34;
 
@@ -118,7 +118,7 @@ export default function WhiteboardCanvas({
     // 3. Render Progressive Solution Steps
     const stepStartY = currentY;
     const availableHeight = H - stepStartY - 40;
-    const stepSpacing = Math.min(100, availableHeight / Math.max(1, timeline.length));
+    const stepSpacing = Math.min(96, availableHeight / Math.max(1, timeline.length));
 
     timeline.forEach((scene, index) => {
       if (currentTime < scene.startTime) {
@@ -126,17 +126,19 @@ export default function WhiteboardCanvas({
         return;
       }
 
-      const sceneProgress = Math.min(
-        1,
-        Math.max(0, (currentTime - scene.startTime) / scene.duration)
-      );
+      // Write text during first 85% of scene duration, rest in final state for 15%
+      const writingTimeRatio = 0.85;
+      const rawProgress = (currentTime - scene.startTime) / (scene.duration * writingTimeRatio);
+      const sceneProgress = Math.min(1, Math.max(0, rawProgress));
 
       const yPos = stepStartY + index * stepSpacing;
 
       // Draw Step Number / Label badge
-      ctx.fillStyle = scene.isFinal ? "#10B981" : "#3B82F6";
-      ctx.font = "600 14px 'Inter', sans-serif";
-      const stepLabel = scene.isFinal ? "FINAL ANSWER" : `STEP ${scene.step || index + 1}`;
+      ctx.fillStyle = scene.isFinal ? "#10B981" : "#4F46E5";
+      ctx.font = "bold 13px 'Inter', system-ui, sans-serif";
+      const stepLabel = scene.isFinal
+        ? "FINAL ANSWER"
+        : `STEP ${scene.step || index + 1}${scene.title ? ` • ${scene.title.toUpperCase()}` : ""}`;
       ctx.fillText(stepLabel, paddingX, yPos - 6);
 
       // Character-by-character progressive writing
@@ -151,7 +153,7 @@ export default function WhiteboardCanvas({
         ctx.strokeStyle = "#10B981";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(paddingX - 12, yPos + 2, W - paddingX * 2 + 24, 52, 8);
+        ctx.roundRect(paddingX - 12, yPos + 2, W - paddingX * 2 + 24, 52, 10);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
@@ -160,21 +162,20 @@ export default function WhiteboardCanvas({
       // Draw Step Content
       ctx.fillStyle = scene.isFinal ? "#065F46" : "#1E293B";
       ctx.font = scene.isFinal
-        ? "bold 28px 'Fira Code', 'Courier New', monospace"
-        : "500 24px 'Fira Code', 'Courier New', monospace";
+        ? "bold 26px 'Fira Code', 'Courier New', monospace"
+        : "500 23px 'Fira Code', 'Courier New', monospace";
       ctx.fillText(visibleText, paddingX, yPos + 38);
 
-      // Animated writing pen tip / cursor indicator
+      // Animated writing pen tip indicator while writing is in progress
       if (sceneProgress > 0 && sceneProgress < 1) {
         const textMetrics = ctx.measureText(visibleText);
-        const cursorX = paddingX + textMetrics.width + 3;
+        const cursorX = paddingX + textMetrics.width + 4;
         const cursorY = yPos + 38;
 
-        // Draw animated pen nib indicator
         ctx.save();
         ctx.fillStyle = "#6366F1";
         ctx.beginPath();
-        ctx.arc(cursorX + 2, cursorY - 6, 3.5, 0, Math.PI * 2);
+        ctx.arc(cursorX + 2, cursorY - 6, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -182,7 +183,7 @@ export default function WhiteboardCanvas({
 
     // 4. Watermark / Footer
     ctx.fillStyle = "#94A3B8";
-    ctx.font = "12px 'Inter', sans-serif";
+    ctx.font = "12px 'Inter', system-ui, sans-serif";
     ctx.fillText("Fresher.AI • Whiteboard Explanation", paddingX, H - 24);
 
     // Timestamp indicator on canvas

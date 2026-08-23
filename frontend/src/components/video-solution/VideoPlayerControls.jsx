@@ -6,9 +6,8 @@ import {
   FiVolume2,
   FiVolumeX,
   FiMaximize2,
-  FiDownload,
-  FiCheck,
 } from "react-icons/fi";
+
 
 /**
  * Formats seconds into MM:SS format
@@ -92,30 +91,10 @@ export default function VideoPlayerControls({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          {/* Download WebM Video Button */}
-          <button
-            onClick={onDownloadVideo}
-            disabled={isRecording}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-black font-semibold text-xs hover:bg-white/90 transition shadow-md disabled:opacity-50"
-            title="Download Video File (WebM)"
-          >
-            {isRecording ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                <span>Recording...</span>
-              </>
-            ) : (
-              <>
-                <FiDownload size={14} />
-                <span>Download Video (.webm)</span>
-              </>
-            )}
-          </button>
-
           {/* Fullscreen Button */}
           <button
             onClick={onToggleFullscreen}
-            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition hidden sm:flex"
+            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition"
             title="Fullscreen"
           >
             <FiMaximize2 size={16} />
@@ -125,3 +104,4 @@ export default function VideoPlayerControls({
     </div>
   );
 }
+

@@ -25,8 +25,11 @@ def _map_roadmap_from_db(row: Dict[str, Any]) -> Dict[str, Any]:
         "userId": str(row.get("user_id")),
         "title": row.get("title", ""),
         "targetPackage": row.get("target_package", ""),
+        "package": row.get("target_package", ""),
         "duration": row.get("duration", ""),
         "level": row.get("level", "Intermediate"),
+        "syllabus": row.get("syllabus", []),
+        "essentialTools": row.get("essential_tools", row.get("essentialTools", [])),
         "modules": row.get("modules", []),
         "createdAt": row.get("created_at"),
         "updatedAt": row.get("updated_at"),
@@ -73,6 +76,8 @@ async def create_roadmap(
             "target_package": result.get("targetPackage", body.targetPackage),
             "duration": result.get("duration", "12 Weeks"),
             "level": result.get("level", "Intermediate"),
+            "syllabus": result.get("syllabus", []),
+            "essential_tools": result.get("essentialTools", []),
             "modules": result.get("modules", []),
         }
 
@@ -88,6 +93,7 @@ async def create_roadmap(
 
         # 3. Cache single roadmap and clear user history cache
         await set_cache(f"roadmap:{roadmap_id}", json.dumps(mapped_roadmap), ex=60 * 60)
+
         await delete_cache(f"userRoadmaps:{user_id}")
 
         return {

@@ -45,19 +45,40 @@ class AIResponse(BaseModel):
 
 # ─── Strict Structured Pydantic Schemas for Outputs ───
 
+class TechnicalRubric(BaseModel):
+    correctness: int = Field(ge=0, le=40, default=30, description="Technical Correctness (max 40)")
+    completeness: int = Field(ge=0, le=20, default=15, description="Completeness of concepts (max 20)")
+    reasoning: int = Field(ge=0, le=15, default=12, description="Problem-Solving & Reasoning (max 15)")
+    communication: int = Field(ge=0, le=15, default=12, description="Communication & Clarity (max 15)")
+    relevance: int = Field(ge=0, le=10, default=8, description="Relevance & Conciseness (max 10)")
+
+
+class HRRubric(BaseModel):
+    relevance: int = Field(ge=0, le=25, default=20, description="Relevance to question (max 25)")
+    communication: int = Field(ge=0, le=25, default=20, description="Communication & Clarity (max 25)")
+    structure: int = Field(ge=0, le=20, default=15, description="Structure & STAR methodology (max 20)")
+    examples: int = Field(ge=0, le=15, default=12, description="Specific real-world examples (max 15)")
+    confidence: int = Field(ge=0, le=15, default=12, description="Confidence & Professionalism (max 15)")
+
+
 class AnswerEvaluationSchema(BaseModel):
     overall_score: int = Field(ge=0, le=100, default=75)
-    technical_score: int = Field(ge=0, le=100, default=75)
-    communication_score: int = Field(ge=0, le=100, default=80)
-    problem_solving_score: int = Field(ge=0, le=100, default=70)
-    relevance_score: int = Field(ge=0, le=100, default=80)
+    technical_score: Optional[int] = Field(default=None, ge=0, le=100)
+    communication_score: Optional[int] = Field(default=None, ge=0, le=100)
+    problem_solving_score: Optional[int] = Field(default=None, ge=0, le=100)
+    relevance_score: Optional[int] = Field(default=None, ge=0, le=100)
+    result: str = Field(default="partially_correct", description="correct, partially_correct, incorrect, or insufficient")
+    technical_rubric: Optional[TechnicalRubric] = None
+    hr_rubric: Optional[HRRubric] = None
     strengths: List[str] = Field(default_factory=list)
-    improvements: List[str] = Field(default_factory=list)
-    missing_concepts: List[str] = Field(default_factory=list)
+    missing_points: List[str] = Field(default_factory=list)
+    incorrect_points: List[str] = Field(default_factory=list)
+    what_you_should_understand: Optional[str] = None
+    ideal_answer_summary: str = ""
+    approach_guidance: List[str] = Field(default_factory=list)
     feedback: str = ""
-    better_answer: Optional[str] = ""
-    follow_up_required: bool = False
-    suggested_follow_up: Optional[str] = None
+    improvements: List[str] = Field(default_factory=list)
+
 
 
 class InterviewQuestionSchema(BaseModel):
@@ -68,26 +89,60 @@ class InterviewQuestionSchema(BaseModel):
     skills_tested: List[str] = Field(default_factory=list)
     expected_key_points: List[str] = Field(default_factory=list)
     timer_seconds: int = 90
+    source: str = "standard"  # 'standard' or 'resume'
+    resume_section: Optional[str] = None
+    resume_reference: Optional[str] = None
 
 
 class QuestionReviewItem(BaseModel):
+    question_index: int = 1
     question: str
-    user_answer: str
-    score: int
-    feedback: str
-    better_approach: str
-
-
-class InterviewReportSchema(BaseModel):
-    overall_score: int = Field(ge=0, le=100, default=75)
-    technical_score: int = Field(ge=0, le=100, default=75)
-    communication_score: int = Field(ge=0, le=100, default=80)
+    user_answer: str = ""
+    difficulty: str = "medium"
+    topic: str = "General"
+    score: int = Field(ge=0, le=100, default=75)
+    result: str = "partially_correct"  # 'correct', 'partially_correct', 'incorrect', 'insufficient'
+    category_scores: Dict[str, int] = Field(default_factory=dict)
     strengths: List[str] = Field(default_factory=list)
-    weaknesses: List[str] = Field(default_factory=list)
-    summary: str = ""
-    hiring_recommendation: str = "Hire"
-    question_by_question: List[QuestionReviewItem] = Field(default_factory=list)
-    actionable_next_steps: List[str] = Field(default_factory=list)
+    missing_points: List[str] = Field(default_factory=list)
+    incorrect_points: List[str] = Field(default_factory=list)
+    what_you_should_understand: Optional[str] = None
+    approach_guidance: List[str] = Field(default_factory=list)
+    ideal_answer: str = ""
+    source: str = "standard"
+    resume_reference: Optional[str] = None
+
+
+class TopicAccuracyItem(BaseModel):
+    topic: str
+    score: int = Field(ge=0, le=100)
+    questions_count: int = 1
+    correct_count: int = 0
+
+
+class StandardizedInterviewReport(BaseModel):
+    overall_score: int = Field(ge=0, le=100)
+    readiness_label: str
+    readiness_description: str
+    questions_count: int
+    correct_count: int
+    partial_count: int
+    incorrect_count: int
+    insufficient_count: int
+    average_score: int
+    category_scores: Dict[str, int]
+    topic_accuracy: List[TopicAccuracyItem]
+    top_strengths: List[str]
+    priority_improvements: List[str]
+    recommendations: List[str]
+    summary: str
+    question_reviews: List[QuestionReviewItem]
+
+
+# Backwards compatibility alias
+InterviewReportSchema = StandardizedInterviewReport
+
+
 
 
 class ATSSectionAudit(BaseModel):

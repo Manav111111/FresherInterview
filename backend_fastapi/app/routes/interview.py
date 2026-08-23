@@ -34,6 +34,19 @@ def _map_interview_from_db(row: Dict[str, Any]) -> Dict[str, Any]:
         "currentQuestion": row.get("current_question", 0),
         "questions": row.get("questions", []),
         "overallScore": row.get("overall_score", 0),
+        "readiness": row.get("readiness") or row.get("readiness_label") or ("Strong / Nearly Ready" if row.get("overall_score", 0) >= 75 else "Developing / Needs Practice"),
+        "readinessDescription": row.get("readiness_description", ""),
+        "questionsCount": row.get("questions_count", len(row.get("questions", []))),
+        "correctCount": row.get("correct_count", 0),
+        "partialCount": row.get("partial_count", 0),
+        "incorrectCount": row.get("incorrect_count", 0),
+        "insufficientCount": row.get("insufficient_count", 0),
+        "averageScore": row.get("average_score", row.get("overall_score", 0)),
+        "categoryScores": row.get("category_scores", {}),
+        "topicAccuracy": row.get("topic_accuracy", []),
+        "topStrengths": row.get("top_strengths", row.get("strengths", [])),
+        "priorityImprovements": row.get("priority_improvements", row.get("weaknesses", [])),
+        "questionReviews": row.get("question_reviews", []),
         "strengths": row.get("strengths", []),
         "weaknesses": row.get("weaknesses", []),
         "recommendations": row.get("recommendations", []),
@@ -42,6 +55,7 @@ def _map_interview_from_db(row: Dict[str, Any]) -> Dict[str, Any]:
         "createdAt": row.get("created_at"),
         "updatedAt": row.get("updated_at"),
     }
+
 
 
 @interview_router.post("/start", status_code=status.HTTP_201_CREATED)
@@ -247,9 +261,22 @@ async def submit_answer(
 
         interview["status"] = "completed"
         interview["overall_score"] = report.get("overallScore", feedback_data.get("score", 75))
+        interview["readiness"] = report.get("readiness", "Strong / Nearly Ready")
+        interview["readiness_description"] = report.get("readinessDescription", "")
+        interview["questions_count"] = report.get("questionsCount", len(questions))
+        interview["correct_count"] = report.get("correctCount", 0)
+        interview["partial_count"] = report.get("partialCount", 0)
+        interview["incorrect_count"] = report.get("incorrectCount", 0)
+        interview["insufficient_count"] = report.get("insufficientCount", 0)
+        interview["average_score"] = report.get("averageScore", interview["overall_score"])
+        interview["category_scores"] = report.get("categoryScores", {})
+        interview["topic_accuracy"] = report.get("topicAccuracy", [])
+        interview["top_strengths"] = report.get("topStrengths", report.get("strengths", []))
+        interview["priority_improvements"] = report.get("priorityImprovements", report.get("weaknesses", []))
+        interview["question_reviews"] = report.get("questionReviews", [])
         interview["summary"] = report.get("summary", "")
-        interview["strengths"] = report.get("strengths", [])
-        interview["weaknesses"] = report.get("weaknesses", [])
+        interview["strengths"] = report.get("topStrengths", report.get("strengths", []))
+        interview["weaknesses"] = report.get("priorityImprovements", report.get("weaknesses", []))
         interview["recommendations"] = report.get("recommendations", [])
 
     # 6. Save update to Supabase and cache active session in Redis
@@ -258,11 +285,25 @@ async def submit_answer(
         "current_question": interview["current_question"],
         "status": interview["status"],
         "overall_score": interview.get("overall_score", 0),
+        "readiness": interview.get("readiness", ""),
+        "readiness_description": interview.get("readiness_description", ""),
+        "questions_count": interview.get("questions_count", len(questions)),
+        "correct_count": interview.get("correct_count", 0),
+        "partial_count": interview.get("partial_count", 0),
+        "incorrect_count": interview.get("incorrect_count", 0),
+        "insufficient_count": interview.get("insufficient_count", 0),
+        "average_score": interview.get("average_score", 0),
+        "category_scores": interview.get("category_scores", {}),
+        "topic_accuracy": interview.get("topic_accuracy", []),
+        "top_strengths": interview.get("top_strengths", []),
+        "priority_improvements": interview.get("priority_improvements", []),
+        "question_reviews": interview.get("question_reviews", []),
         "summary": interview.get("summary", ""),
         "strengths": interview.get("strengths", []),
         "weaknesses": interview.get("weaknesses", []),
         "recommendations": interview.get("recommendations", []),
     }
+
 
     try:
         supabase.table("interviews").update(update_payload).eq("id", body.interviewId).execute()

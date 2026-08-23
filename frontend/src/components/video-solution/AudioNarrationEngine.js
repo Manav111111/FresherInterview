@@ -1,6 +1,6 @@
 /**
  * AudioNarrationEngine
- * Manages browser speech synthesis synchronization with the video timeline.
+ * Manages browser speech synthesis perfectly synchronized with the whiteboard video timeline.
  */
 export class AudioNarrationEngine {
   constructor() {
@@ -8,8 +8,34 @@ export class AudioNarrationEngine {
     this.currentUtterance = null;
     this.lastSpokenSceneId = null;
     this.isMuted = false;
-    this.rate = 1.0;
-    this.pitch = 1.0;
+    this.voices = [];
+    this.selectedVoice = null;
+
+    if (this.isSupported) {
+      this.loadVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = () => this.loadVoices();
+      }
+    }
+  }
+
+  loadVoices() {
+    if (!this.isSupported) return;
+    this.voices = window.speechSynthesis.getVoices() || [];
+    this.selectedVoice =
+      this.voices.find(
+        (v) =>
+          v.lang.startsWith("en") &&
+          (v.name.includes("Natural") ||
+            v.name.includes("Google") ||
+            v.name.includes("Samantha") ||
+            v.name.includes("Alex") ||
+            v.name.includes("Guy") ||
+            v.name.includes("Aria"))
+      ) ||
+      this.voices.find((v) => v.lang.startsWith("en")) ||
+      this.voices[0] ||
+      null;
   }
 
   setMuted(muted) {
@@ -19,12 +45,23 @@ export class AudioNarrationEngine {
     }
   }
 
+  pause() {
+    if (this.isSupported && window.speechSynthesis.speaking) {
+      window.speechSynthesis.pause();
+    }
+  }
+
+  resume() {
+    if (this.isSupported && window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  }
+
   stop() {
     if (this.isSupported) {
       window.speechSynthesis.cancel();
     }
     this.currentUtterance = null;
-    this.lastSpokenSceneId = null;
   }
 
   reset() {
@@ -40,30 +77,44 @@ export class AudioNarrationEngine {
     this.lastSpokenSceneId = scene.id;
 
     try {
-      const utterance = new SpeechSynthesisUtterance(scene.narration);
-      utterance.rate = this.rate;
-      utterance.pitch = this.pitch;
+      const text = scene.narration.trim();
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Calculate rate dynamically so spoken narration duration matches the visual scene duration
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      const sceneDuration = Math.max(2.5, scene.duration || 4.0);
+      
+      // Standard baseline is ~2.4 words per second
+      const estimatedNormalDur = Math.max(1.0, wordCount / 2.4);
+      const targetRate = estimatedNormalDur / (sceneDuration * 0.95);
+      
+      // Keep rate within natural sounding bounds
+      utterance.rate = Math.max(0.9, Math.min(1.3, targetRate));
+      utterance.pitch = 1.0;
 
-      // Select a natural voice if available
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(
-        (v) =>
-          v.lang.startsWith("en") &&
-          (v.name.includes("Natural") ||
-            v.name.includes("Google") ||
-            v.name.includes("Samantha") ||
-            v.name.includes("Alex") ||
-            v.name.includes("English"))
-      ) || voices.find((v) => v.lang.startsWith("en")) || voices[0];
-
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
+      if (!this.selectedVoice && this.voices.length === 0) {
+        this.loadVoices();
       }
+
+      if (this.selectedVoice) {
+        utterance.voice = this.selectedVoice;
+      }
+
+      utterance.onend = () => {
+        this.currentUtterance = null;
+      };
+
+      utterance.onerror = (e) => {
+        // Ignore canceled errors on user seek/pause
+        if (e.error !== "canceled" && e.error !== "interrupted") {
+          console.warn("Speech synthesis error:", e);
+        }
+      };
 
       this.currentUtterance = utterance;
       window.speechSynthesis.speak(utterance);
     } catch (err) {
-      console.warn("Speech synthesis error:", err);
+      console.warn("Speech synthesis trigger exception:", err);
     }
   }
 }
