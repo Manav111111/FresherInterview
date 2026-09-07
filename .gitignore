@@ -40,3 +40,7 @@ uploads/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local Vector Storage & Runtime Data
+backend_fastapi/app/data/
+**/qdrant_local/

@@ -1,0 +1,264 @@
+"""
+Fresher.AI Knowledge Base — Metadata Schema & Data Dictionary Module
+Defines the universal JSON data model, field constraints, Qdrant collection mappings, and entity schemas.
+"""
+
+def _embed_schema(entity, pkey, coll, fields):
+    return (
+        f"Entity: {entity}\n"
+        f"Primary Key: {pkey}\n"
+        f"Qdrant Collection: {coll}\n"
+        f"Key Payload Fields: {fields}"
+    )
+
+METADATA_SCHEMA = [
+    {
+        "schema_id": "schema_roles",
+        "sheet_name": "Roles",
+        "entity_type": "role",
+        "primary_key": "role_id",
+        "qdrant_collection": "roles",
+        "id_format_pattern": "role_[a-z0-9_]+",
+        "total_fields": 19,
+        "required_fields": "role_id;role_name;domain;category;difficulty_level;description;embedding_text",
+        "relationship_fields": "core_skill_ids;foundation_skill_ids;prerequisite_role_ids;next_career_steps;project_ids",
+        "qdrant_payload_schema": "{\"role_id\": \"keyword\", \"role_name\": \"text\", \"domain\": \"keyword\", \"category\": \"keyword\", \"difficulty_level\": \"keyword\", \"fresher_friendly\": \"bool\", \"remote_friendly\": \"bool\", \"importance_score\": \"integer\"}",
+        "description": "Master registry of 25 software and AI engineering roles with career trajectory, salary tiers, and skill links.",
+        "embedding_text": _embed_schema("Roles", "role_id", "roles", "role_id, role_name, domain, category, core_skill_ids, difficulty_level")
+    },
+    {
+        "schema_id": "schema_foundation",
+        "sheet_name": "Foundation",
+        "entity_type": "skill_foundation",
+        "primary_key": "skill_id",
+        "qdrant_collection": "skills",
+        "id_format_pattern": "skill_[a-z0-9_]+",
+        "total_fields": 24,
+        "required_fields": "skill_id;skill_name;category;stage;priority;importance;description;embedding_text",
+        "relationship_fields": "prerequisites;related_skill_ids;next_skill_ids;applicable_role_ids",
+        "qdrant_payload_schema": "{\"skill_id\": \"keyword\", \"skill_name\": \"text\", \"category\": \"keyword\", \"stage\": \"keyword\", \"priority\": \"keyword\", \"importance\": \"integer\", \"applicable_role_ids\": \"keyword[]\"}",
+        "description": "Common foundational engineering skills (Python, Git, Linux, SQL, HTTP, Testing, System Design) shared across roles.",
+        "embedding_text": _embed_schema("Foundation", "skill_id", "skills", "skill_id, skill_name, category, stage, priority, applicable_role_ids")
+    },
+    {
+        "schema_id": "schema_skills",
+        "sheet_name": "Skills",
+        "entity_type": "skill",
+        "primary_key": "skill_id",
+        "qdrant_collection": "skills",
+        "id_format_pattern": "skill_[a-z0-9_]+",
+        "total_fields": 24,
+        "required_fields": "skill_id;skill_name;category;stage;priority;importance;description;embedding_text",
+        "relationship_fields": "prerequisites;related_skill_ids;next_skill_ids;applicable_role_ids",
+        "qdrant_payload_schema": "{\"skill_id\": \"keyword\", \"skill_name\": \"text\", \"category\": \"keyword\", \"stage\": \"keyword\", \"priority\": \"keyword\", \"importance\": \"integer\", \"applicable_role_ids\": \"keyword[]\"}",
+        "description": "Exhaustive registry of specialized skills across AI, Frontend, Backend, DevOps, Data Science, Security, QA, Mobile, and Blockchain.",
+        "embedding_text": _embed_schema("Skills", "skill_id", "skills", "skill_id, skill_name, category, stage, priority, prerequisites, applicable_role_ids")
+    },
+    {
+        "schema_id": "schema_weekly_roadmaps",
+        "sheet_name": "Weekly_Roadmaps",
+        "entity_type": "weekly_roadmap",
+        "primary_key": "roadmap_id",
+        "qdrant_collection": "roadmaps",
+        "id_format_pattern": "roadmap_[a-z0-9_]+",
+        "total_fields": 24,
+        "required_fields": "roadmap_id;role_id;week_number;phase_name;difficulty;is_core;is_optional;weekly_goal;hands_on_deliverable;learning_outcomes;resume_evidence;embedding_text",
+        "relationship_fields": "role_id;skill_ids;prerequisite_weeks;recommended_resource_ids;recommended_youtube_ids;recommended_tool_ids;recommended_project_ids",
+        "qdrant_payload_schema": "{\"roadmap_id\": \"keyword\", \"role_id\": \"keyword\", \"week_number\": \"integer\", \"phase_number\": \"integer\", \"phase_name\": \"text\", \"difficulty\": \"keyword\", \"is_core\": \"bool\", \"is_optional\": \"bool\", \"skill_ids\": \"keyword[]\", \"prerequisite_weeks\": \"keyword[]\", \"recommended_resource_ids\": \"keyword[]\", \"recommended_youtube_ids\": \"keyword[]\", \"recommended_tool_ids\": \"keyword[]\", \"recommended_project_ids\": \"keyword[]\"}",
+        "description": "Structured week-by-week learning roadmaps per role with 7-day breakdowns, practice tasks, learning outcomes, interview topics, resume evidence, and direct resource links.",
+        "embedding_text": _embed_schema("Weekly Roadmaps", "roadmap_id", "roadmaps", "roadmap_id, role_id, week_number, phase_name, difficulty, is_core, weekly_goal, deliverable, skill_ids, learning_outcomes, resume_evidence")
+    },
+    {
+        "schema_id": "schema_projects",
+        "sheet_name": "Projects",
+        "entity_type": "project",
+        "primary_key": "project_id",
+        "qdrant_collection": "projects",
+        "id_format_pattern": "proj_[a-z0-9_]+",
+        "total_fields": 34,
+        "required_fields": "project_id;project_sequence;title;role_id;tier;complexity_level;description;tech_stack;resume_bullet_point;embedding_text",
+        "relationship_fields": "role_id;skills_used;tutorial_resource_ids;documentation_resource_ids;youtube_resource_ids",
+        "qdrant_payload_schema": "{\"project_id\": \"keyword\", \"project_sequence\": \"integer\", \"role_id\": \"keyword\", \"tier\": \"keyword\", \"project_stage\": \"keyword\", \"complexity_level\": \"keyword\", \"beginner_friendly\": \"bool\", \"title\": \"text\", \"skills_used\": \"keyword[]\"}",
+        "description": "Portfolio projects sequenced 1..N across Starter, Intermediate, and Capstone tiers with complete architecture, learning objectives, and resume bullet points.",
+        "embedding_text": _embed_schema("Projects", "project_id", "projects", "project_id, project_sequence, role_id, tier, title, skills_used, tech_stack, resume_bullet_point")
+    },
+    {
+        "schema_id": "schema_resources",
+        "sheet_name": "Resources",
+        "entity_type": "resource",
+        "primary_key": "resource_id",
+        "qdrant_collection": "resources",
+        "id_format_pattern": "resource_[a-z0-9_]+",
+        "total_fields": 47,
+        "required_fields": "resource_id;title;resource_type;resource_purpose;category;provider;url;description;embedding_text",
+        "relationship_fields": "role_ids;skill_ids;topic_ids;related_tool_ids;related_project_ids;related_roadmap_ids;recommended_youtube_ids",
+        "qdrant_payload_schema": "{\"resource_id\": \"keyword\", \"resource_type\": \"keyword\", \"resource_purpose\": \"keyword\", \"category\": \"keyword\", \"provider\": \"keyword\", \"difficulty\": \"keyword\", \"free_or_paid\": \"keyword\", \"role_ids\": \"keyword[]\", \"skill_ids\": \"keyword[]\"}",
+        "description": "Curated official docs, tools, practice platforms, and career portals with 9 explicit functional purposes and visual categories.",
+        "embedding_text": _embed_schema("Resources", "resource_id", "resources", "resource_id, title, resource_type, resource_purpose, category, provider, role_ids, skill_ids, url")
+    },
+    {
+        "schema_id": "schema_youtube",
+        "sheet_name": "YouTube_Channels",
+        "entity_type": "youtube_channel",
+        "primary_key": "channel_id",
+        "qdrant_collection": "resources",
+        "id_format_pattern": "yt_[a-z0-9_]+",
+        "total_fields": 19,
+        "required_fields": "channel_id;channel_name;handle;url;best_for;recommended_use;embedding_text",
+        "relationship_fields": "role_ids;skill_ids",
+        "qdrant_payload_schema": "{\"channel_id\": \"keyword\", \"channel_name\": \"text\", \"handle\": \"keyword\", \"recommended_level\": \"keyword\", \"priority\": \"bool\", \"project_focus\": \"bool\", \"role_ids\": \"keyword[]\", \"skill_ids\": \"keyword[]\"}",
+        "description": "Curated YouTube educational channels with priority rankings, playlist recommendations, and project-building focus.",
+        "embedding_text": _embed_schema("YouTube Channels", "channel_id", "resources", "channel_id, channel_name, handle, best_for, role_ids, skill_ids")
+    },
+    {
+        "schema_id": "schema_interview_questions",
+        "sheet_name": "Interview_Questions",
+        "entity_type": "interview_question",
+        "primary_key": "question_id",
+        "qdrant_collection": "interview_prep",
+        "id_format_pattern": "q_[a-z0-9_]+",
+        "total_fields": 12,
+        "required_fields": "question_id;role_id;category;difficulty;question;ideal_answer;key_concepts_to_look_for;embedding_text",
+        "relationship_fields": "role_id;skill_id",
+        "qdrant_payload_schema": "{\"question_id\": \"keyword\", \"role_id\": \"keyword\", \"skill_id\": \"keyword\", \"category\": \"keyword\", \"difficulty\": \"keyword\", \"question\": \"text\"}",
+        "description": "Technical, system design, and behavioral interview questions with ideal answers, evaluation criteria, and candidate pitfalls.",
+        "embedding_text": _embed_schema("Interview Questions", "question_id", "interview_prep", "question_id, role_id, skill_id, category, difficulty, question, key_concepts")
+    },
+    {
+        "schema_id": "schema_resume_keywords",
+        "sheet_name": "Resume_Keywords",
+        "entity_type": "resume_keyword",
+        "primary_key": "keyword_id",
+        "qdrant_collection": "resume_intel",
+        "id_format_pattern": "kw_[a-z0-9_]+",
+        "total_fields": 10,
+        "required_fields": "keyword_id;role_id;category;keyword;importance_weight;action_verbs;embedding_text",
+        "relationship_fields": "role_id;related_skill_ids",
+        "qdrant_payload_schema": "{\"keyword_id\": \"keyword\", \"role_id\": \"keyword\", \"category\": \"keyword\", \"keyword\": \"text\", \"importance_weight\": \"float\", \"related_skill_ids\": \"keyword[]\"}",
+        "description": "ATS-friendly keywords, frequency metrics, action verbs, and resume impact examples per role.",
+        "embedding_text": _embed_schema("Resume Keywords", "keyword_id", "resume_intel", "keyword_id, role_id, category, keyword, importance_weight, action_verbs")
+    },
+    {
+        "schema_id": "schema_skill_matrix",
+        "sheet_name": "Skill_Matrix",
+        "entity_type": "skill_matrix_entry",
+        "primary_key": "matrix_id",
+        "qdrant_collection": "skill_matrix",
+        "id_format_pattern": "sm_[a-z0-9_]+",
+        "total_fields": 12,
+        "required_fields": "matrix_id;role_id;skill_id;skill_name;proficiency_level_required;importance_weight;is_core;embedding_text",
+        "relationship_fields": "role_id;skill_id",
+        "qdrant_payload_schema": "{\"matrix_id\": \"keyword\", \"role_id\": \"keyword\", \"skill_id\": \"keyword\", \"proficiency_level_required\": \"keyword\", \"importance_weight\": \"float\", \"is_core\": \"bool\", \"stage\": \"keyword\"}",
+        "description": "Role-to-skill mapping with numerical weights (1.0, 0.8, 0.6) powering the Skill Gap Analysis Engine.",
+        "embedding_text": _embed_schema("Skill Matrix", "matrix_id", "skill_matrix", "matrix_id, role_id, skill_id, proficiency, importance_weight, is_core")
+    },
+    {
+        "schema_id": "schema_market_signals",
+        "sheet_name": "Market_Signals",
+        "entity_type": "market_signal",
+        "primary_key": "signal_id",
+        "qdrant_collection": "market_intel",
+        "id_format_pattern": "sig_[a-z0-9_]+",
+        "total_fields": 17,
+        "required_fields": "signal_id;role_id;role_name;demand_trend;yoy_hiring_growth_percent;entry_salary_inr_lpa;entry_salary_usd_k;embedding_text",
+        "relationship_fields": "role_id;top_in_demand_skills",
+        "qdrant_payload_schema": "{\"signal_id\": \"keyword\", \"role_id\": \"keyword\", \"demand_trend\": \"keyword\", \"yoy_hiring_growth_percent\": \"float\", \"remote_friendly_score\": \"integer\"}",
+        "description": "2025-2026 hiring market intelligence, salary bands in INR and USD, industry growth, and technology headwinds.",
+        "embedding_text": _embed_schema("Market Signals", "signal_id", "market_intel", "signal_id, role_id, demand_trend, yoy_growth, entry_salary, top_skills")
+    },
+    {
+        "schema_id": "schema_certifications",
+        "sheet_name": "Certifications",
+        "entity_type": "certification",
+        "primary_key": "cert_id",
+        "qdrant_collection": "career_growth",
+        "id_format_pattern": "cert_[a-z0-9_]+",
+        "total_fields": 14,
+        "required_fields": "cert_id;title;issuer;applicable_role_ids;difficulty;fresher_roi_score;embedding_text",
+        "relationship_fields": "applicable_role_ids;skill_ids",
+        "qdrant_payload_schema": "{\"cert_id\": \"keyword\", \"title\": \"text\", \"issuer\": \"keyword\", \"difficulty\": \"keyword\", \"fresher_roi_score\": \"float\", \"applicable_role_ids\": \"keyword[]\"}",
+        "description": "High-value industry certifications with exam costs, topics tested, difficulty levels, and career ROI scores.",
+        "embedding_text": _embed_schema("Certifications", "cert_id", "career_growth", "cert_id, title, issuer, difficulty, exam_cost, fresher_roi_score")
+    },
+    {
+        "schema_id": "schema_tools_platforms",
+        "sheet_name": "Tools_Platforms",
+        "entity_type": "tool_platform",
+        "primary_key": "tool_id",
+        "qdrant_collection": "tools",
+        "id_format_pattern": "tool_[a-z0-9_]+",
+        "total_fields": 27,
+        "required_fields": "tool_id;tool_name;category;purpose;best_for;when_to_use;primary_role_ids;embedding_text",
+        "relationship_fields": "primary_role_ids;related_skill_ids;related_resource_ids;related_project_ids;related_roadmap_ids",
+        "qdrant_payload_schema": "{\"tool_id\": \"keyword\", \"tool_name\": \"text\", \"category\": \"keyword\", \"subcategory\": \"keyword\", \"pricing_model\": \"keyword\", \"is_universal\": \"bool\", \"is_role_specific\": \"bool\", \"beginner_friendly\": \"bool\", \"primary_role_ids\": \"keyword[]\"}",
+        "description": "Developer tools, IDEs, databases, platforms, and AI observability software mapped across universal and role-specific workflows.",
+        "embedding_text": _embed_schema("Tools & Platforms", "tool_id", "tools", "tool_id, tool_name, category, subcategory, purpose, best_for, primary_role_ids")
+    },
+    {
+        "schema_id": "schema_common_mistakes",
+        "sheet_name": "Common_Mistakes",
+        "entity_type": "common_mistake",
+        "primary_key": "mistake_id",
+        "qdrant_collection": "interview_prep",
+        "id_format_pattern": "mistake_[a-z0-9_]+",
+        "total_fields": 9,
+        "required_fields": "mistake_id;role_id;category;mistake_title;symptom;why_it_happens;correct_approach;embedding_text",
+        "relationship_fields": "role_id",
+        "qdrant_payload_schema": "{\"mistake_id\": \"keyword\", \"role_id\": \"keyword\", \"category\": \"keyword\", \"mistake_title\": \"text\"}",
+        "description": "Common engineering pitfalls, anti-patterns, junior traps, and how to fix them.",
+        "embedding_text": _embed_schema("Common Mistakes", "mistake_id", "interview_prep", "mistake_id, role_id, category, mistake_title, symptom, correct_approach")
+    },
+    {
+        "schema_id": "schema_day_in_the_life",
+        "sheet_name": "Day_In_The_Life",
+        "entity_type": "day_in_the_life",
+        "primary_key": "role_id",
+        "qdrant_collection": "career_growth",
+        "id_format_pattern": "role_[a-z0-9_]+",
+        "total_fields": 9,
+        "required_fields": "role_id;role_title;daily_schedule_breakdown;time_allocation_percent;key_team_collaborators;embedding_text",
+        "relationship_fields": "role_id",
+        "qdrant_payload_schema": "{\"role_id\": \"keyword\", \"role_title\": \"text\"}",
+        "description": "Realistic hourly breakdowns, team rituals, time allocation percentages, and expectations across engineering roles.",
+        "embedding_text": _embed_schema("Day in the Life", "role_id", "career_growth", "role_id, role_title, schedule, time_allocation, challenges")
+    },
+    {
+        "schema_id": "schema_career_transitions",
+        "sheet_name": "Career_Transitions",
+        "entity_type": "career_transition",
+        "primary_key": "transition_id",
+        "qdrant_collection": "career_growth",
+        "id_format_pattern": "trans_[a-z0-9_]+",
+        "total_fields": 12,
+        "required_fields": "transition_id;current_role_id;target_role_id;transition_title;skill_overlap_percentage;key_bridge_skills_to_acquire;embedding_text",
+        "relationship_fields": "current_role_id;target_role_id;key_bridge_skills_to_acquire;recommended_portfolio_bridge_project",
+        "qdrant_payload_schema": "{\"transition_id\": \"keyword\", \"current_role_id\": \"keyword\", \"target_role_id\": \"keyword\", \"skill_overlap_percentage\": \"float\", \"key_bridge_skills_to_acquire\": \"keyword[]\"}",
+        "description": "Structured career transition pathways between tech roles, bridge skills, overlap percentages, and strategic advice.",
+        "embedding_text": _embed_schema("Career Transitions", "transition_id", "career_growth", "transition_id, current_role, target_role, overlap, bridge_skills, advice")
+    },
+    {
+        "schema_id": "schema_metadata_schema",
+        "sheet_name": "Metadata_Schema",
+        "entity_type": "meta_schema",
+        "primary_key": "schema_id",
+        "qdrant_collection": "meta",
+        "id_format_pattern": "schema_[a-z0-9_]+",
+        "total_fields": 12,
+        "required_fields": "schema_id;sheet_name;entity_type;primary_key;qdrant_collection;id_format_pattern;required_fields;embedding_text",
+        "relationship_fields": "relationship_fields",
+        "qdrant_payload_schema": "{\"schema_id\": \"keyword\", \"sheet_name\": \"keyword\", \"entity_type\": \"keyword\", \"primary_key\": \"keyword\", \"qdrant_collection\": \"keyword\"}",
+        "description": "Data dictionary and schema definition specification for all 17 sheets in the Fresher.AI knowledge base.",
+        "embedding_text": _embed_schema("Metadata Schema", "schema_id", "meta", "schema_id, sheet_name, entity_type, primary_key, qdrant_collection, required_fields")
+    }
+]
+
+def get_metadata_schema():
+    return METADATA_SCHEMA
+
+def get_metadata_schema_headers():
+    return [
+        "schema_id", "sheet_name", "entity_type", "primary_key",
+        "qdrant_collection", "id_format_pattern", "total_fields",
+        "required_fields", "relationship_fields", "qdrant_payload_schema",
+        "description", "embedding_text"
+    ]

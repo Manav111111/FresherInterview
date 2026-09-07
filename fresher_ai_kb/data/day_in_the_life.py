@@ -1,0 +1,59 @@
+"""
+Fresher.AI Knowledge Base — Day in the Life Data Module
+Realistic daily routines, core workflows, team rituals, and expectations across engineering roles.
+"""
+
+def _embed_day(role, time_split, rituals, challenges):
+    return (
+        f"Role: {role}\n"
+        f"Time Allocation: {time_split}\n"
+        f"Key Daily Rituals: {rituals}\n"
+        f"Biggest Daily Challenges: {challenges}"
+    )
+
+DAY_IN_THE_LIFE = [
+    {
+        "role_id": "role_ai_engineer",
+        "role_title": "AI Engineer (Applied GenAI)",
+        "daily_schedule_breakdown": "09:30 - Review production traces in Langfuse & error logs; 10:15 - Daily Standup (blockers & experiments); 10:45 - Deep work: Developing LangGraph agent tools or indexing new doc formats; 13:00 - Lunch; 14:00 - Running quantitative RAGAS evaluation on new prompt variations; 15:30 - Code review for teammates' FastAPI microservices; 16:30 - Prompt optimization & latency tuning; 17:30 - Documenting Architecture Decision Record (ADR).",
+        "time_allocation_percent": "40% Python Backend & Agent Coding; 25% Evaluation, Prompt Tuning & RAG Benchmarking; 15% Observability, Tracing & Bug Fixing; 10% Code Reviews; 10% Architecture & Meetings",
+        "key_team_collaborators": "Product Managers (feature definitions), Frontend Engineers (streaming API contracts), Data Engineers (data pipelines), Security Engineers (guardrails)",
+        "primary_tools_used_daily": "VS Code / Cursor, FastAPI, Qdrant, Langfuse, LangGraph, Docker, Postman, Slack, GitHub",
+        "biggest_daily_challenges": "Non-deterministic LLM behavior across edge cases, balancing context window size vs token API costs, reducing end-to-end latency for streaming voice/chat.",
+        "what_great_looks_like": "Shipping reliable, fast AI features backed by quantitative evaluation benchmarks (>95% faithfulness) and comprehensive automated error recovery.",
+        "embedding_text": _embed_day("AI Engineer", "40% Coding, 25% Evaluation & Prompts, 15% Observability, 10% Reviews, 10% Meetings", "Langfuse trace review, standup, deep coding, RAGAS benchmark, code review", "Non-deterministic LLM behavior, token cost vs accuracy trade-offs, latency optimization")
+    },
+    {
+        "role_id": "role_full_stack_developer",
+        "role_title": "Full Stack Developer",
+        "daily_schedule_breakdown": "09:30 - Check Sentry error alerts & GitHub notifications; 10:00 - Morning Standup; 10:30 - Deep work: Building Next.js UI components and Prisma backend endpoints; 13:00 - Lunch; 14:00 - Writing unit & integration tests with Vitest and Playwright; 15:30 - Pull request reviews & pairing; 16:30 - Database migration planning and index optimization; 17:30 - Feature demo to Product Manager.",
+        "time_allocation_percent": "45% Frontend & Backend Feature Coding; 20% Automated Testing & Debugging; 15% Code Reviews & PRs; 10% Architecture & Database Design; 10% Team Standups & Syncs",
+        "key_team_collaborators": "UI/UX Designers (Figma specs), Product Managers, QA Engineers, DevOps (deployment pipelines)",
+        "primary_tools_used_daily": "VS Code, Next.js, React, TypeScript, PostgreSQL, Prisma, Tailwind CSS, Playwright, GitHub, Figma",
+        "biggest_daily_challenges": "Managing asynchronous state and cache invalidation between server and client, ensuring responsive design across all devices, maintaining high test coverage.",
+        "what_great_looks_like": "Writing clean, type-safe full-stack features with reusable UI components, performant database queries, and zero production regressions.",
+        "embedding_text": _embed_day("Full Stack Developer", "45% Coding, 20% Testing, 15% Reviews, 10% DB Architecture, 10% Meetings", "Sentry review, standup, full-stack development, Playwright tests, PR review", "State synchronization, cache invalidation, responsive UI perfection")
+    },
+    {
+        "role_id": "role_devops_engineer",
+        "role_title": "DevOps / Cloud Platform Engineer",
+        "daily_schedule_breakdown": "09:00 - Review overnight Prometheus/Grafana alerts and cluster health; 09:45 - Morning Standup; 10:15 - Deep work: Writing Terraform modules for new cloud resources or optimizing ArgoCD pipelines; 13:00 - Lunch; 14:00 - Investigating CI/CD build bottlenecks and optimizing Docker multi-stage cache; 15:30 - Assisting development teams with Kubernetes deployment configs; 16:30 - Security patch audit with Trivy; 17:30 - Updating operational runbooks.",
+        "time_allocation_percent": "35% Infrastructure as Code (Terraform) & Kubernetes; 25% CI/CD Pipelines & Automation; 20% Monitoring, Incident Response & Observability; 10% Developer Enablement & Support; 10% Meetings",
+        "key_team_collaborators": "Software Engineers (deployment support), Security Engineers (compliance/scanning), Engineering Leads (infrastructure budgeting)",
+        "primary_tools_used_daily": "Kubernetes (kubectl/k9s), Terraform, AWS Console & CLI, ArgoCD, Prometheus, Grafana, GitHub Actions, Docker",
+        "biggest_daily_challenges": "Zero-downtime cluster upgrades, managing cloud infrastructure costs (FinOps), tracking down sporadic network latency or OOMKilled pods.",
+        "what_great_looks_like": "Creating a frictionless, self-service developer platform where any engineer can deploy tested code to staging in under 5 minutes with 99.99% uptime.",
+        "embedding_text": _embed_day("DevOps Engineer", "35% Terraform & K8s, 25% CI/CD, 20% Monitoring/Incidents, 10% Dev Support, 10% Meetings", "Alert review, standup, Terraform coding, CI/CD speed optimization, K8s configs", "Zero-downtime upgrades, cloud cost governance, diagnosing intermittent container faults")
+    }
+]
+
+def get_day_in_the_life():
+    return DAY_IN_THE_LIFE
+
+def get_day_in_the_life_headers():
+    return [
+        "role_id", "role_title", "daily_schedule_breakdown",
+        "time_allocation_percent", "key_team_collaborators",
+        "primary_tools_used_daily", "biggest_daily_challenges",
+        "what_great_looks_like", "embedding_text"
+    ]

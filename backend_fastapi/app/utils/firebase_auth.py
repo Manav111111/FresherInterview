@@ -3,8 +3,15 @@ import json
 import logging
 from typing import Dict, Any, Optional
 import jwt
-import firebase_admin
-from firebase_admin import auth as firebase_auth, credentials
+try:
+    import firebase_admin
+    from firebase_admin import auth as firebase_auth, credentials
+    HAS_FIREBASE_ADMIN = True
+except ImportError:
+    HAS_FIREBASE_ADMIN = False
+    firebase_admin = None
+    firebase_auth = None
+    credentials = None
 from app.config import settings
 
 logger = logging.getLogger("fresherai.firebase")
@@ -16,7 +23,7 @@ def init_firebase():
     """Initializes Firebase Admin SDK if serviceAccountKey.json exists."""
     global _firebase_initialized
 
-    if _firebase_initialized:
+    if _firebase_initialized or not HAS_FIREBASE_ADMIN:
         return
 
     key_path = settings.FIREBASE_SERVICE_ACCOUNT_PATH

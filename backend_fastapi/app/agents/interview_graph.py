@@ -2,8 +2,11 @@ import json
 import re
 import logging
 from typing import List, Dict, Any, Optional, TypedDict
-from langchain_core.messages import SystemMessage, HumanMessage
-from langgraph.graph import StateGraph, START, END
+try:
+    from langgraph.graph import StateGraph, START, END
+    HAS_LANGGRAPH = True
+except ImportError:
+    HAS_LANGGRAPH = False
 from app.ai.provider_router import ai_router
 from app.ai.schemas import (
     TaskType,
@@ -762,36 +765,45 @@ async def generate_summary_node(state: InterviewState) -> Dict[str, Any]:
 # 7. GRAPH ASSEMBLY
 # ==========================================
 
-workflow = StateGraph(InterviewState)
+if HAS_LANGGRAPH:
+    workflow = StateGraph(InterviewState)
+    workflow.add_node("generate_questions", generate_questions_node)
+    workflow.add_node("evaluate_answer", evaluate_answer_node)
+    workflow.add_node("generate_summary", generate_summary_node)
 
-workflow.add_node("generate_questions", generate_questions_node)
-workflow.add_node("evaluate_answer", evaluate_answer_node)
-workflow.add_node("generate_summary", generate_summary_node)
-
-
-def route_action(state: InterviewState):
-    action = state.get("action", "start")
-    if action == "start":
+    def route_action(state: InterviewState):
+        action = state.get("action", "start")
+        if action == "start":
+            return "generate_questions"
+        elif action == "feedback":
+            return "evaluate_answer"
+        elif action == "summary":
+            return "generate_summary"
         return "generate_questions"
-    elif action == "feedback":
-        return "evaluate_answer"
-    elif action == "summary":
-        return "generate_summary"
-    return "generate_questions"
 
+    workflow.add_conditional_edges(
+        START,
+        route_action,
+        {
+            "generate_questions": "generate_questions",
+            "evaluate_answer": "evaluate_answer",
+            "generate_summary": "generate_summary",
+        }
+    )
+    workflow.add_edge("generate_questions", END)
+    workflow.add_edge("evaluate_answer", END)
+    workflow.add_edge("generate_summary", END)
+    interview_graph = workflow.compile()
+else:
+    class DirectInterviewGraph:
+        def invoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
+            action = state.get("action", "start")
+            if action == "start":
+                return generate_questions_node(state)
+            elif action == "feedback":
+                return evaluate_answer_node(state)
+            elif action == "summary":
+                return generate_summary_node(state)
+            return generate_questions_node(state)
 
-workflow.add_conditional_edges(
-    START,
-    route_action,
-    {
-        "generate_questions": "generate_questions",
-        "evaluate_answer": "evaluate_answer",
-        "generate_summary": "generate_summary",
-    }
-)
-
-workflow.add_edge("generate_questions", END)
-workflow.add_edge("evaluate_answer", END)
-workflow.add_edge("generate_summary", END)
-
-interview_graph = workflow.compile()
+    interview_graph = DirectInterviewGraph()

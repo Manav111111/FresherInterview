@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <rect width="128" height="128" rx="28" fill="#042F2E"/>
+  <!-- Outer Connector Ring -->
+  <circle cx="64" cy="64" r="46" stroke="#0D9488" stroke-width="6" stroke-dasharray="8 6"/>
+  <!-- MCP Socket Nodes -->
+  <circle cx="64" cy="24" r="7" fill="#2DD4BF"/>
+  <circle cx="98" cy="44" r="7" fill="#2DD4BF"/>
+  <circle cx="98" cy="84" r="7" fill="#2DD4BF"/>
+  <circle cx="64" cy="104" r="7" fill="#2DD4BF"/>
+  <circle cx="30" cy="84" r="7" fill="#2DD4BF"/>
+  <circle cx="30" cy="44" r="7" fill="#2DD4BF"/>
+  <!-- Inner Hexagon Hub -->
+  <path d="M64 38 L86 51 L86 77 L64 90 L42 77 L42 51 Z" fill="#115E59" stroke="#14B8A6" stroke-width="4"/>
+  <!-- Fast Lightning Bolt in Center -->
+  <path d="M67 46 L54 66 L63 66 L60 82 L75 62 L66 62 Z" fill="#F0FDFA" stroke="#2DD4BF" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

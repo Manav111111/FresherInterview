@@ -1,0 +1,73 @@
+services:
+  # 1. FastAPI AI Backend
+  backend:
+    build:
+      context: ./backend_fastapi
+      dockerfile: Dockerfile
+    container_name: fresherai-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_KB_COLLECTION=fresher_ai_knowledge
+      - EMBEDDING_PROVIDER=gemini
+      - EMBEDDING_MODEL=gemini-embedding-2
+      - EMBEDDING_DIMENSION=768
+    env_file:
+      - ./backend_fastapi/.env
+    depends_on:
+      - redis
+      - qdrant
+    networks:
+      - fresherai-network
+
+  # 2. Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: fresherai-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - fresherai-network
+
+  # 3. Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: fresherai-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - fresherai-network
+
+  # 4. React + Vite Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fresherai-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - fresherai-network
+
+networks:
+  fresherai-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  qdrant_data:

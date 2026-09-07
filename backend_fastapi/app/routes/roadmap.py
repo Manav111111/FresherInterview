@@ -13,26 +13,75 @@ logger = logging.getLogger("fresherai.roadmap")
 
 roadmap_router = APIRouter(tags=["Roadmap"])
 
+from pydantic import BaseModel, Field
+
 # In-memory store for development fallback
 _mock_roadmaps_db: Dict[str, Dict[str, Any]] = {}
 
 
+class SkillGapPayload(BaseModel):
+    role: str = Field(..., description="Target role name")
+    skills: List[str] = Field(default_factory=list, description="Candidate skills list")
+
+
 def _map_roadmap_from_db(row: Dict[str, Any]) -> Dict[str, Any]:
-    """Maps database row (snake_case) to frontend expected format (camelCase)."""
+    """Maps database row (snake_case) to frontend expected format (both Section 10 and camelCase)."""
+    tools = row.get("tools") or row.get("essential_tools") or row.get("essentialTools") or []
+    yt_resources = row.get("youtube_resources") or row.get("youtube_playlists") or row.get("youtubePlaylists") or []
+    docs = row.get("official_docs") or row.get("learning_resources") or row.get("learningResources") or []
+    career_res = row.get("career_resources") or row.get("careerResources") or []
+    projects = row.get("projects") or row.get("portfolio_projects") or row.get("portfolioProjects") or []
+    skills = row.get("skills") or row.get("skill_gap_summary") or {"strong": [], "partial": [], "missing": [], "priority": []}
+
     return {
+        # Section 10 Schema
+        "role": row.get("role") or row.get("title", "Career Roadmap"),
+        "target_salary": row.get("target_salary") or row.get("target_package") or "15 LPA",
+        "summary": row.get("summary") or {
+            "difficulty": row.get("level", "Intermediate"),
+            "duration_weeks": len(row.get("modules", [])) or 12,
+            "personalized": bool(row.get("personalized", False)),
+        },
+        "skills": skills,
+        "tools": tools,
+        "youtube_resources": yt_resources,
+        "official_docs": docs,
+        "career_resources": career_res,
+        "projects": projects,
+        "modules": row.get("modules", []),
+
+        # Backward compatibility fields
         "_id": str(row.get("id")),
         "id": str(row.get("id")),
         "userId": str(row.get("user_id")),
         "title": row.get("title", ""),
-        "targetPackage": row.get("target_package", ""),
-        "package": row.get("target_package", ""),
-        "duration": row.get("duration", ""),
+        "targetPackage": row.get("target_package") or row.get("target_salary", ""),
+        "package": row.get("target_package") or row.get("target_salary", ""),
+        "duration": row.get("duration", f"{len(row.get('modules', []))} Weeks"),
         "level": row.get("level", "Intermediate"),
         "syllabus": row.get("syllabus", []),
-        "essentialTools": row.get("essential_tools", row.get("essentialTools", [])),
-        "modules": row.get("modules", []),
+        "essentialTools": tools,
+        "youtubePlaylists": yt_resources,
+        "learningResources": docs,
+        "careerResources": career_res,
+        "portfolioProjects": projects,
+        "skillGapSummary": row.get("skill_gap_summary") or row.get("skillGapSummary"),
         "createdAt": row.get("created_at"),
         "updatedAt": row.get("updated_at"),
+    }
+
+
+@roadmap_router.post("/skill-gap")
+async def calculate_skill_gap_endpoint(
+    body: SkillGapPayload,
+    current_user: dict = Depends(get_current_user),
+):
+    """Calculates skill gap for candidate skills against canonical target role."""
+    from app.services.skill_gap_engine import skill_gap_engine
+    result = skill_gap_engine.calculate_skill_gap(body.role, body.skills)
+    return {
+        "success": True,
+        "data": result,
     }
 
 
@@ -72,13 +121,27 @@ async def create_roadmap(
         db_payload = {
             "id": roadmap_id,
             "user_id": user_id,
+            "role": result.get("role", body.role),
+            "target_salary": result.get("target_salary", body.targetPackage),
             "title": result.get("title", f"{body.role} Career Roadmap"),
             "target_package": result.get("targetPackage", body.targetPackage),
             "duration": result.get("duration", "12 Weeks"),
             "level": result.get("level", "Intermediate"),
+            "summary": result.get("summary", {}),
+            "skills": result.get("skills", {}),
+            "tools": result.get("tools", []),
+            "youtube_resources": result.get("youtube_resources", []),
+            "official_docs": result.get("official_docs", []),
+            "career_resources": result.get("career_resources", []),
+            "projects": result.get("projects", []),
             "syllabus": result.get("syllabus", []),
-            "essential_tools": result.get("essentialTools", []),
+            "essential_tools": result.get("tools", []),
             "modules": result.get("modules", []),
+            "youtube_playlists": result.get("youtube_resources", []),
+            "learning_resources": result.get("official_docs", []),
+            "portfolio_projects": result.get("projects", []),
+            "skill_gap_summary": result.get("skillGapSummary", {}),
+            "personalized": result.get("summary", {}).get("personalized", False),
         }
 
         # 2. Insert into Supabase

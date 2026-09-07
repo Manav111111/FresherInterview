@@ -72,6 +72,42 @@ async def root():
     }
 
 
+@app.get("/health", tags=["Health"])
+async def health_ping():
+    """Lightweight health check endpoint."""
+    return {"status": "ok"}
+
+
+@app.get("/health/dependencies", tags=["Health"])
+async def health_dependencies():
+    """Dependency health check for Backend, Redis, Qdrant, and Database."""
+    # 1. Check Redis
+    redis_client = await get_redis()
+    redis_ok = "ok" if redis_client else "degraded"
+
+    # 2. Check Qdrant
+    try:
+        from app.services.qdrant_service import qdrant_service
+        q_stats = qdrant_service.get_stats()
+        qdrant_ok = "ok" if q_stats.get("status") in ("green", "yellow", "ok") or q_stats.get("points_count", 0) > 0 else "degraded"
+    except Exception:
+        qdrant_ok = "degraded"
+
+    # 3. Check Supabase / DB
+    try:
+        db = get_supabase()
+        db_ok = "ok" if db is not None else "degraded"
+    except Exception:
+        db_ok = "degraded"
+
+    return {
+        "backend": "ok",
+        "redis": redis_ok,
+        "qdrant": qdrant_ok,
+        "database": db_ok,
+    }
+
+
 @app.get("/api/health", tags=["Health"])
 async def health_check():
     redis_client = await get_redis()
@@ -100,6 +136,7 @@ app.include_router(user_router, prefix="/api")
 app.include_router(resume_router, prefix="/api/resume")
 app.include_router(interview_router, prefix="/api/interview")
 app.include_router(roadmap_router, prefix="/api/roadmap")
+app.include_router(roadmap_router, prefix="/api/v1/roadmap")
 app.include_router(billing_router, prefix="/api/billing")
 app.include_router(video_solution_router, prefix="/api/video")
 app.include_router(chat_router, prefix="/api/chat")

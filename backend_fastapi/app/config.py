@@ -16,6 +16,19 @@ class Settings(BaseSettings):
     # Redis configuration
     REDIS_URL: str = "redis://localhost:6379"
 
+    # Qdrant Vector DB configuration
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_API_KEY: str = ""
+    QDRANT_KB_COLLECTION: str = "fresher_ai_knowledge"
+
+    # Embedding configuration
+    EMBEDDING_PROVIDER: str = "gemini"
+    EMBEDDING_MODEL: str = "gemini-embedding-2"
+    EMBEDDING_DIMENSION: int = 768
+
+    # RAG caching configuration
+    RAG_CACHE_TTL: int = 1800  # 30 minutes
+
     # AI / LLM configuration - Groq
     GROQ_API_KEY: str = ""
     GROQ_FAST_MODEL: str = "llama-3.3-70b-versatile"

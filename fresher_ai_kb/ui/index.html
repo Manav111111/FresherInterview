@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fresher.AI — Career Roadmap, Resource Ecosystem & Project Guide</title>
+  <meta name="description" content="A practical, beginner-friendly career navigation hub for freshers: weekly roadmaps, curated resources, sequenced projects, and YouTube learning guides for AI Engineers, Full Stack Developers, and DevOps Engineers.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top Navigation & Role Bar -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <div class="brand-badge">PRO</div>
+        <div class="brand-title">
+          <span class="gradient-text">Fresher.AI</span>
+          <span class="brand-subtitle">Career Navigation & Recommendation Hub</span>
+        </div>
+      </div>
+
+      <!-- Role Selector -->
+      <div class="role-selector-wrapper">
+        <label for="role-select-label" class="sr-only">Select Career Track</label>
+        <div class="role-tabs" id="roleTabs">
+          <button class="role-tab active" data-role="role_ai_engineer">
+            <span class="role-icon">🟢</span>
+            <span class="role-name">AI Engineer</span>
+            <span class="role-tag">16 Weeks</span>
+          </button>
+          <button class="role-tab" data-role="role_full_stack_developer">
+            <span class="role-icon">🔵</span>
+            <span class="role-name">Full Stack Developer</span>
+            <span class="role-tag">12 Weeks</span>
+          </button>
+          <button class="role-tab" data-role="role_devops_engineer">
+            <span class="role-icon">🟣</span>
+            <span class="role-name">DevOps Engineer</span>
+            <span class="role-tag">12 Weeks</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Slide Tabs -->
+  <nav class="view-navbar">
+    <div class="nav-container">
+      <div class="nav-tabs" id="viewNavTabs">
+        <button class="nav-tab active" data-view="roadmap-stages">
+          <span class="tab-icon">🗺️</span>
+          <span>7-Stage Progression</span>
+        </button>
+        <button class="nav-tab" data-view="weekly-guide">
+          <span class="tab-icon">📅</span>
+          <span>Weekly Guide ("Do This Next")</span>
+        </button>
+        <button class="nav-tab" data-view="resources-ecosystem">
+          <span class="tab-icon">🧰</span>
+          <span>Resource Ecosystem</span>
+        </button>
+        <button class="nav-tab" data-view="projects-catalog">
+          <span class="tab-icon">💻</span>
+          <span>Sequenced Projects</span>
+        </button>
+        <button class="nav-tab" data-view="youtube-guide">
+          <span class="tab-icon">📺</span>
+          <span>Curated YouTube</span>
+        </button>
+        <button class="nav-tab" data-view="case-study">
+          <span class="tab-icon">🏗️</span>
+          <span>Architecture Case Study</span>
+        </button>
+        <button class="nav-tab" data-view="career-launchpad">
+          <span class="tab-icon">🎯</span>
+          <span>Career & Jobs</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main View Container -->
+  <main class="app-main" id="mainContent">
+
+    <!-- ================================================================= -->
+    <!-- SLIDE 1: 7-STAGE PROGRESSION ROADMAP -->
+    <!-- ================================================================= -->
+    <section class="slide-section active" id="view-roadmap-stages">
+      <div class="slide-header">
+        <div class="editorial-badge">PROGRESSION TIMELINE</div>
+        <h1 class="slide-title" id="stageProgressionTitle">AI Engineer Roadmap Progression</h1>
+        <p class="slide-description" id="stageProgressionDesc">
+          A structured, beginner-first progression from foundational programming to building and deploying production systems.
+        </p>
+      </div>
+
+      <!-- 7 Visual Stage Cards Grid -->
+      <div class="stage-cards-grid" id="stageCardsGrid">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+
+      <!-- Conceptual Career Ladder Banner -->
+      <div class="conceptual-ladder-card" id="conceptualLadderCard">
+        <div class="ladder-header">
+          <span class="ladder-icon">⚡</span>
+          <h3>THE MENTAL MODEL: FROM CODE TO PRODUCTION</h3>
+        </div>
+        <div class="ladder-steps" id="ladderSteps">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SLIDE 2: WEEKLY INTERACTIVE GUIDE ("DO THIS NEXT") -->
+    <!-- ================================================================= -->
+    <section class="slide-section" id="view-weekly-guide">
+      <div class="weekly-layout">
+        <!-- Week Sidebar / Selector -->
+        <aside class="weekly-sidebar">
+          <div class="sidebar-header">
+            <h3>WEEKS</h3>
+            <span class="week-count-badge" id="weekCountBadge">16 Weeks</span>
+          </div>
+          <div class="week-buttons-list" id="weekButtonsList">
+            <!-- Rendered dynamically -->
+          </div>
+        </aside>
+
+        <!-- Week Detail View -->
+        <div class="weekly-content" id="weekDetailContent">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SLIDE 3: CATEGORIZED RESOURCE ECOSYSTEM -->
+    <!-- ================================================================= -->
+    <section class="slide-section" id="view-resources-ecosystem">
+      <div class="slide-header">
+        <div class="editorial-badge">PRACTICAL ECOSYSTEM</div>
+        <h1 class="slide-title">Developer & Role Resource Hub</h1>
+        <p class="slide-description">
+          Categorized tools, official documentation, practice platforms, and deployment services mapped by functional purpose.
+        </p>
+      </div>
+
+      <!-- Purpose Filter Toolbar -->
+      <div class="filter-toolbar">
+        <div class="purpose-filter-group" id="purposeFilters">
+          <button class="filter-pill active" data-purpose="ALL">All Resources</button>
+          <button class="filter-pill" data-purpose="LEARN">LEARN</button>
+          <button class="filter-pill" data-purpose="USE">USE</button>
+          <button class="filter-pill" data-purpose="DOCUMENTATION">DOCUMENTATION</button>
+          <button class="filter-pill" data-purpose="PRACTICE">PRACTICE</button>
+          <button class="filter-pill" data-purpose="PORTFOLIO">PORTFOLIO / DEPLOY</button>
+          <button class="filter-pill" data-purpose="JOBS / CAREER">JOBS / CAREER</button>
+        </div>
+        <div class="search-box">
+          <input type="text" id="resourceSearchInput" placeholder="Search resources, tools, databases...">
+        </div>
+      </div>
+
+      <!-- 5 Visual Categories Grid -->
+      <div class="categories-container" id="categoriesContainer">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SLIDE 4: SEQUENCED PROJECT CATALOG -->
+    <!-- ================================================================= -->
+    <section class="slide-section" id="view-projects-catalog">
+      <div class="slide-header">
+        <div class="editorial-badge">PROOF OF WORK</div>
+        <h1 class="slide-title" id="projectsCatalogTitle">Sequenced Portfolio Projects</h1>
+        <p class="slide-description">
+          Build practical, progressive projects from simple starter scripts to complete enterprise capstones.
+        </p>
+      </div>
+
+      <!-- Tier Filters -->
+      <div class="tier-filter-tabs" id="projectTierTabs">
+        <button class="tier-tab active" data-tier="ALL">All Projects (<span id="totalProjCount">0</span>)</button>
+        <button class="tier-tab" data-tier="starter">🟢 Starter (<span id="starterProjCount">0</span>)</button>
+        <button class="tier-tab" data-tier="intermediate">🔵 Intermediate (<span id="interProjCount">0</span>)</button>
+        <button class="tier-tab" data-tier="capstone">🟣 Capstone (<span id="capstoneProjCount">0</span>)</button>
+      </div>
+
+      <!-- Projects Grid -->
+      <div class="projects-grid" id="projectsGrid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SLIDE 5: CURATED YOUTUBE LEARNING GUIDE -->
+    <!-- ================================================================= -->
+    <section class="slide-section" id="view-youtube-guide">
+      <div class="slide-header">
+        <div class="editorial-badge">VERIFIED EDUCATORS</div>
+        <h1 class="slide-title">Curated YouTube Learning Guide</h1>
+        <p class="slide-description">
+          Prioritized channels with clear distinctions between conceptual foundations and complete practical project builds.
+        </p>
+      </div>
+
+      <!-- Priority vs Additional Cards -->
+      <div class="youtube-sections-wrapper" id="youtubeSectionsWrapper">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SLIDE 6: SYSTEM ARCHITECTURE CASE STUDY -->
+    <!-- ================================================================= -->
+    <section class="slide-section" id="view-case-study">
+      <div class="slide-header">
+        <div class="editorial-badge">REAL-WORLD ARCHITECTURE</div>
+        <h1 class="slide-title">Case Study: Full-Stack AI Career Copilot</h1>
+        <p class="slide-description">
+          "The LLM is not the product. The system around the LLM is."
+        </p>
+      </div>
+
+      <div class="case-study-card">
+        <div class="architecture-diagram-container">
+          <div class="diagram-flow">
+            <div class="flow-node node-user">
+              <div class="node-badge">CLIENT</div>
+              <h4>User Query / Request</h4>
+              <p>Next.js 14 Web Interface</p>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node node-gateway">
+              <div class="node-badge">API GATEWAY</div>
+              <h4>FastAPI Streaming Server</h4>
+              <p>Auth Guards & Rate Limiter</p>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-split">
+              <div class="flow-node node-rag">
+                <div class="node-badge">RETRIEVAL</div>
+                <h4>Qdrant Vector DB</h4>
+                <p>Hybrid Search + Metadata Filter</p>
+              </div>
+              <div class="flow-node node-agent">
+                <div class="node-badge">REASONING</div>
+                <h4>LangGraph Agent Loop</h4>
+                <p>Tool Router & State Checkpoints</p>
+              </div>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node node-llm">
+              <div class="node-badge">SYNTHESIS</div>
+              <h4>LLM (GPT-4o / Gemini Flash)</h4>
+              <p>Strict Pydantic JSON & Streaming</p>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node node-eval">
+              <div class="node-badge">VALIDATION</div>
+              <h4>Citation Grounding & Guardrails</h4>
+              <p>Hallucination Verification</p>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node node-output">
+              <div class="node-badge">DELIVERY</div>
+              <h4>Verified Insight & Action Plan</h4>
+              <p>Sub-Second Response</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="case-study-details">
+          <h3>WHAT MAKES THIS REAL-WORLD ENGINEERING?</h3>
+          <div class="engineering-pillars-grid">
+            <div class="pillar-card">
+              <div class="pillar-icon">🔄</div>
+              <h4>Agentic Workflow</h4>
+              <p>LangGraph cyclical graphs manage state persistence and tool retries rather than fragile linear prompts.</p>
+            </div>
+            <div class="pillar-card">
+              <div class="pillar-icon">🔍</div>
+              <h4>Grounded Retrieval</h4>
+              <p>Qdrant hybrid sparse-dense vectors ensure answers cite verified knowledge with line-level accuracy.</p>
+            </div>
+            <div class="pillar-card">
+              <div class="pillar-icon">🛡️</div>
+              <h4>Strict Guardrails</h4>
+              <p>Pydantic schemas and input sanitization prevent prompt injections and malformed JSON payloads.</p>
+            </div>
+            <div class="pillar-card">
+              <div class="pillar-icon">📦</div>
+              <h4>Containerized Production</h4>
+              <p>Docker Compose orchestrates the entire multi-service stack with persistent volumes and health checks.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- SLIDE 7: CAREER & JOB LAUNCHPAD -->
+    <!-- ================================================================= -->
+    <section class="slide-section" id="view-career-launchpad">
+      <div class="slide-header">
+        <div class="editorial-badge">CAREER READINESS</div>
+        <h1 class="slide-title">Job Search & Interview Launchpad</h1>
+        <p class="slide-description">
+          Verified hiring platforms, ATS-friendly resume keyword targets, and technical interview checklists.
+        </p>
+      </div>
+
+      <div class="career-grid">
+        <!-- Job Portals -->
+        <div class="career-card">
+          <div class="career-card-header">
+            <span class="card-icon">💼</span>
+            <h3>Verified Job Search Platforms</h3>
+          </div>
+          <div class="job-portals-list">
+            <a href="https://www.linkedin.com" target="_blank" class="portal-item">
+              <div class="portal-info">
+                <strong>LinkedIn Jobs</strong>
+                <span>Primary platform for corporate openings, recruiters, and demo video showcases.</span>
+              </div>
+              <span class="portal-link-arrow">↗</span>
+            </a>
+            <a href="https://wellfound.com" target="_blank" class="portal-item">
+              <div class="portal-info">
+                <strong>Wellfound (AngelList)</strong>
+                <span>High-growth AI and modern tech startups with direct founder outreach.</span>
+              </div>
+              <span class="portal-link-arrow">↗</span>
+            </a>
+            <a href="https://www.naukri.com" target="_blank" class="portal-item">
+              <div class="portal-info">
+                <strong>Naukri.com</strong>
+                <span>Dominant hiring portal in India for software developer fresher campus drives.</span>
+              </div>
+              <span class="portal-link-arrow">↗</span>
+            </a>
+            <a href="https://internshala.com" target="_blank" class="portal-item">
+              <div class="portal-info">
+                <strong>Internshala</strong>
+                <span>Entry-level software engineering and AI internship opportunities.</span>
+              </div>
+              <span class="portal-link-arrow">↗</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Portfolio & Proof of Work -->
+        <div class="career-card">
+          <div class="career-card-header">
+            <span class="card-icon">⭐</span>
+            <h3>Fresher Proof-of-Work Checklist</h3>
+          </div>
+          <ul class="checklist-items">
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>GitHub Green Square Consistency</strong>
+                <p>Public repositories with detailed markdown READMEs and architecture diagrams.</p>
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>Live Deployment Links</strong>
+                <p>Every resume project must have a working live URL on Vercel or Render.</p>
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>Google XYZ Resume Bullets</strong>
+                <p>"Accomplished [X] as measured by [Y] by doing [Z]" with concrete technical metrics.</p>
+              </div>
+            </li>
+            <li>
+              <span class="check-icon">✓</span>
+              <div>
+                <strong>Demo Video Clips on LinkedIn</strong>
+                <p>Short 60-second screen recordings demonstrating your working project in action.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Interactive Project / Resource Modal -->
+  <div class="app-modal" id="appModal">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-card">
+      <button class="modal-close-btn" id="modalCloseBtn">&times;</button>
+      <div class="modal-body" id="modalBody">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="data/kb_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

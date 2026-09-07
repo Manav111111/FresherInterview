@@ -1,227 +1,277 @@
-# 🚀 Fresher.AI — Next-Gen AI Mock Interview & Career Acceleration Platform
+# 🚀 Fresher.AI — Next-Gen AI Career Acceleration & RAG Platform
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://github.com/langchain-ai/langgraph)
-[![Groq](https://img.shields.io/badge/Groq_LLaMA_3.3_70B-F55036?style=for-the-badge)](https://groq.com/)
-[![Gemini](https://img.shields.io/badge/Google_Gemini_1.5-8E75C2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
-[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
-[![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![Qdrant](https://img.shields.io/badge/Qdrant-Vector_DB-DC382D?style=for-the-badge&logo=qdrant)](https://qdrant.tech/)
+[![Google Gemini](https://img.shields.io/badge/Gemini_Embedding_2-768--dim-8E75C2?style=for-the-badge&logo=google)](https://ai.google.dev/)
+[![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker_Compose-Local_Dev-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
-**Fresher.AI** is a production-grade, multimodal AI career acceleration platform tailored for students, fresh graduates, and software engineers. It delivers ultra-fast adaptive mock interviews, standardized evidence-based evaluation reports, dynamic syllabus roadmaps, an ATS resume scorecard, and an interactive AI whiteboard solution video generator.
+**Fresher.AI** is a production-grade, multimodal AI career acceleration platform tailored for students, freshers, and engineers. It integrates an authoritative **Career Knowledge Base** (`fresher_ai_kb`), **Qdrant Vector Database**, **Gemini Embedding 2 (768-dim)**, and an intelligent **RAG Retrieval Engine** to ground personalizations—delivering personalized learning roadmaps, evidence-based resume ATS audits, and adaptive mock interviews without LLM hallucination.
 
 ---
 
-## 🌟 Key Platform Features
+## 🏛️ System Architecture
 
-### 🎙️ 1. Multimodal AI Mock Interview Studio
-- **Adaptive AI Interviewer Avatar**: Real-time interactive avatar with dynamic video states, conversational speech synthesis, and timed question progression.
-- **Voice Transcription**: High-speed speech-to-text allowing candidates to record spoken answers or type responses.
-- **Dual Tracks**: Dedicated Technical Interview and HR / Behavioral tracks with resume project customization.
-
-### 📊 2. Standardized, Evidence-Based Scoring & Final Report System
-- **Strict Per-Question Rubrics**:
-  - **Technical Interviews**: Technical Correctness ($40\%$), Completeness ($20\%$), Problem-Solving / Reasoning ($15\%$), Communication & Clarity ($15\%$), Relevance & Conciseness ($10\%$).
-  - **HR / Behavioral Interviews**: Relevance to Question ($25\%$), Communication & Clarity ($25\%$), Answer Structure & STAR Methodology ($20\%$), Specific Real-World Examples ($15\%$), Professional Confidence ($15\%$).
-- **Mathematical Difficulty-Weighted Score Aggregation**:
-  $$\text{Final Score} = \frac{\sum (\text{Question Score} \times \text{Difficulty Weight})}{\sum \text{Difficulty Weight}} \quad (\text{Easy: } 0.8, \, \text{Medium: } 1.0, \, \text{Hard: } 1.2)$$
-- **Standardized Result Classifications**: `🟢 Correct` ($\ge 75$), `🟡 Partially Correct` ($50\text{--}74$), `🔴 Incorrect` ($< 50$), `⚪ Insufficient` (brief/empty).
-- **Comprehensive Question-by-Question Review**:
-  - *Submitted Answer*
-  - *What you did well* (evidence-based strengths)
-  - *What was missing* (omitted concepts)
-  - *What you should understand* (conceptual corrections for misconceptions)
-  - *How to approach this question* (step-by-step guidance)
-  - *Example of a strong answer* (model response)
-- **Hiring Readiness Tiers**: Deterministically maps calculated scores to hiring tiers (*Excellent / Interview Ready*, *Strong / Nearly Ready*, *Developing / Needs Practice*, *Significant Improvement Needed*, *Fundamentals Need Attention*).
-- **Topic-Wise Accuracy Breakdown**: Calculates accuracy percentages strictly across actually evaluated domain topics.
-
-### 🛣️ 3. Dynamic Career Roadmap & Role Syllabus Generator
-- **LLM-Powered Curriculum Pillars**: Generates role-specific, package-targeted syllabus pillars with granular technical topics.
-- **Essential Tools & Official Links**: Dynamically suggests must-know developer platforms (GitHub, Supabase, Firebase, MongoDB, Docker, PostgreSQL, Redis, Postman) with direct links to official documentation.
-
-### 🎬 4. AI Whiteboard Solution Video Generator
-- **High-Definition Whiteboard Canvas**: Character-by-character progressive handwriting animation with step badges and accent formatting.
-- **Synchronized Audio Narration**: Dynamically paces speech rate to visual scene duration for seamless voice and canvas writing synchronization.
-- **Deep Technical Solutions**: Generates real mathematical, scientific, and algorithmic derivations (e.g., *Newton's Second Law $F=ma$*, *Binary Search*, *Linear Algebra*).
-
-### 📄 5. ATS Resume Analyzer & Scorecard
-- Deep ATS resume inspection detecting missing keywords, formatting errors, quantified metrics, and section completeness.
-- Live interactive resume builder with dynamic PDF export.
-
-### 🪙 6. Coin Economy & Payment System
-- Rewarding progression system with coins earned through mock interviews.
-- Integrated **Razorpay** checkout for premium interview packs and coin top-ups.
-
----
-
-## 🏗️ Multi-Provider AI Architecture
-
-Fresher.AI uses an intelligent multi-provider routing layer (`AIProviderRouter`):
-- **Groq (LLaMA 3.3 70B Versatile)**: Primary fast engine for real-time interview question generation and instant per-question feedback.
-- **Google Gemini (1.5 Flash / 1.5 Pro)**: Deep reasoning engine for multimodal analysis, ATS resume audits, and executive interview summaries.
-- **Automatic Fallback & Self-Healing**: Resilient fallback handlers ensure uninterrupted mock interviews even during API outages.
-
-```
-                  ┌─────────────────────────────────────────┐
-                  │          Fresher.AI Client              │
-                  │   (React 19, TailwindCSS, Motion)       │
-                  └────────────────────┬────────────────────┘
-                                       │ HTTPS / REST
-                                       ▼
-                  ┌─────────────────────────────────────────┐
-                  │            FastAPI Gateway              │
-                  │     (Auth, Security, Redis Cache)       │
-                  └────────────────────┬────────────────────┘
+```text
+                                  FRESHER.AI
                                        │
-                ┌──────────────────────┴──────────────────────┐
-                │                                             │
-                ▼                                             ▼
-   ┌──────────────────────────┐                  ┌──────────────────────────┐
-   │    Groq Provider Router   │                  │   Gemini Provider Router  │
-   │   (Fast Interview Flow)  │                  │  (Deep Reports & Analysis)│
-   └────────────┬─────────────┘                  └────────────┬─────────────┘
-                │                                             │
-                └──────────────────────┬──────────────────────┘
+                   ┌───────────────────┴───────────────────┐
+                   │                                       │
+             React Frontend                         FastAPI Backend
+           (Vite, TailwindCSS)                       (Port: 8000)
+                                                           │
+                   ┌───────────────────────────────────────┼───────────────────┐
+                   │                                       │                   │
+                 Resume                                 Roadmap               Chat
+                   │                                       │                   │
+                   └───────────────────┬───────────────────┘                   │
+                                       │                                       │
+                                Skill Extraction                               │
+                                       │                                       │
+                              Skill Normalization                              │
+                                       │                                       │
+                               ┌───────▼───────┐                               │
+                               │  RAG ENGINE   │                               │
+                               └───────┬───────┘                               │
+                                       │                                       │
+                             Gemini Embedding 2 (768-dim)                      │
+                                       │                                       │
+                                 Qdrant Vectors                                │
+                               (fresher_ai_knowledge)                          │
+                                       │                                       │
+                   ┌───────────────────┼───────────────────┐                   │
+                   │                   │                   │                   │
+                 Skills            Resources            Projects               │
+                YouTube             Roadmaps           Interview               │
+                 Tools             Playlists            Evidence               │
+                                       │                                       │
+                                     Redis ◄───────────────────────────────────┘
+                                 Cache Results
                                        │
-                                       ▼
-                  ┌─────────────────────────────────────────┐
-                  │     Deterministic Score Aggregator      │
-                  │  (Difficulty Weights, Rubrics, Status)  │
-                  └────────────────────┬────────────────────┘
-                                       │
-                                       ▼
-                  ┌─────────────────────────────────────────┐
-                  │       Supabase PostgreSQL + JSONB       │
-                  └─────────────────────────────────────────┘
+                              Personalized Output
 ```
 
 ---
 
-## 💻 Tech Stack
+## 📂 Project Structure
 
-### Frontend
-- **Framework**: React 19, Vite
-- **Styling**: TailwindCSS, Modern Glassmorphism & Custom CSS Tokens
-- **Animations**: Motion (`motion/react`)
-- **State & Routing**: React Router v7, Redux Toolkit
-- **Icons**: React Icons (`fi`, `bs`, `hi2`)
-- **Speech**: HTML5 Web Speech Synthesis & Recognition API
-
-### Backend
-- **Framework**: FastAPI (Python 3.11+)
-- **Workflow & Agents**: LangGraph, LangChain
-- **AI Providers**: Groq Cloud SDK, Google GenAI SDK
-- **Database**: Supabase (PostgreSQL with JSONB storage)
-- **Caching**: Redis (Session caching & rate limits)
-- **Validation**: Pydantic v2 schemas
-- **Auth**: Supabase Auth / Firebase JWT verification
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- **Node.js** (v18+)
-- **Python** (v3.11+)
-- **Supabase** Project & Database URL
-- **Redis** Instance (Upstash or local Redis)
-- **Groq API Key**
-- **Google Gemini API Key**
-
----
-
-### 1. Backend Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/Manav111111/FresherInterview.git
-cd FresherInterview/backend_fastapi
-
-# Create and activate Python virtual environment
-python -m venv .venv
-
-# On Windows
-.\.venv\Scripts\activate
-
-# On macOS/Linux
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create .env configuration file
-cp .env.example .env
+```text
+FresherAI/
+├── backend_fastapi/              # FastAPI application server
+│   ├── app/
+│   │   ├── agents/               # AI reasoning agents (Roadmap, Resume, Interview)
+│   │   ├── ai/                   # Multi-provider router (Groq, Gemini)
+│   │   ├── core/                 # DB, Redis, Security, and Configuration
+│   │   ├── routes/               # 100% backward-compatible REST API routers
+│   │   ├── schemas/              # Pydantic request/response schemas
+│   │   ├── services/             # Core services: Qdrant, Embedding, Retrieval, SkillGap
+│   │   └── main.py               # FastAPI entry point with health checks
+│   ├── tests/                    # 31 unit & integration tests
+│   ├── Dockerfile                # Multi-stage production Python container
+│   ├── requirements.txt          # Python dependencies
+│   ├── ingest_kb.py              # Knowledge Base vector ingestion script
+│   └── validate_rag.py           # Master 12-point system validation script
+├── fresher_ai_kb/                # Authoritative Career Knowledge Base
+│   ├── data/                     # 17 domain modules (Roles, Skills, Roadmaps, Projects, etc.)
+│   ├── json_export/              # Pre-exported structured payloads
+│   └── export_json.py            # JSON & payload exporter
+├── frontend/                     # React 19 + Vite frontend
+│   ├── src/                      # UI components, pages, Redux store, and API clients
+│   ├── Dockerfile                # Multi-stage Node/Nginx container
+│   ├── nginx.conf                # Reverse proxy for local frontend container
+│   └── package.json              # NPM dependencies
+├── .github/workflows/ci.yml      # CI pipeline for linting, tests, and Docker builds
+├── docker-compose.yml            # Multi-service local orchestrator (App + Redis + Qdrant)
+├── ingest_kb.py                  # Root launcher for KB ingestion
+├── validate_rag.py               # Root launcher for RAG validation suite
+├── .env.example                  # Environment configuration template
+├── render.yaml                   # Cloud deployment blueprint
+└── README.md                     # Platform documentation
 ```
 
-#### Backend Environment Variables (`backend_fastapi/.env`):
+---
+
+## ⚙️ Environment Variables
+
+Copy `.env.example` to `backend_fastapi/.env`:
+
 ```env
+# Server
 PORT=8000
+HOST=0.0.0.0
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+# Database (Supabase)
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your_supabase_anon_or_service_key
+SUPABASE_KEY=your-supabase-service-role-or-anon-key
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# Qdrant Vector Database
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+QDRANT_KB_COLLECTION=fresher_ai_knowledge
+
+# Embeddings (Configurable source of truth)
+EMBEDDING_PROVIDER=gemini
+EMBEDDING_MODEL=gemini-embedding-2
+EMBEDDING_DIMENSION=768
+
+# LLM Providers
 GROQ_API_KEY=your_groq_api_key
+GROQ_FAST_MODEL=llama-3.3-70b-versatile
+GROQ_COMPLEX_MODEL=openai/gpt-oss-120b
+LLM_MODEL=llama-3.3-70b-versatile
+
 GEMINI_API_KEY=your_gemini_api_key
-REDIS_URL=redis://default:password@your-redis-host:6379
+GEMINI_FAST_MODEL=gemini-2.0-flash
+GEMINI_COMPLEX_MODEL=gemini-2.5-pro
+
+# Auth & Billing
+FIREBASE_SERVICE_ACCOUNT_PATH=app/config/serviceAccountKey.json
 RAZORPAY_KEY_ID=your_razorpay_key_id
 RAZORPAY_KEY_SECRET=your_razorpay_key_secret
-JWT_SECRET=your_super_secret_jwt_key
 ```
-
-#### Start FastAPI Server:
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-API Documentation will be live at `http://localhost:8000/docs`.
 
 ---
 
-### 2. Frontend Setup
+## 🚀 Quickstart & Local Development
+
+### 1. Ingest Knowledge Base into Qdrant
+
+Ingest all 471 canonical records across 17 sheets into the 768-dimension collection:
 
 ```bash
-cd ../frontend
+# From workspace root
+python ingest_kb.py
 
-# Install npm packages
-npm install
-
-# Start Vite dev server
-npm run dev
+# Or inside backend_fastapi
+cd backend_fastapi
+python ingest_kb.py
 ```
-Open `http://localhost:5173` to explore the app.
 
----
+### 2. Validate System & RAG Pipeline
 
-## 🧪 Running Automated Tests
+Run the comprehensive 12-point validation check:
 
-Run the complete backend test suite:
+```bash
+python validate_rag.py
+```
+
+Expected output:
+```text
+======================================================================
+🔍 FRESHER.AI MASTER SYSTEM VALIDATION SUITE
+======================================================================
+[01/12] Environment Config ............ PASS  Model: gemini-embedding-2, Dim: 768
+[02/12] Embedding Generation .......... PASS  Vector size: 768
+[03/12] Qdrant Connection ............. PASS  Collection: fresher_ai_knowledge
+[04/12] Vector Dimension & Count ...... PASS  Points: 471, Dim: 768
+[05/12] Semantic Search ............... PASS  Retrieved 2 resources
+[06/12] Metadata Filtering (YouTube) .. PASS  Found verified playlists
+[07/12] Skill Normalization ........... PASS  Mapped ReactJS->React, Mongo->MongoDB
+[08/12] Skill Gap Engine .............. PASS  Strong: 2, Missing: 14
+[09/12] Roadmap RAG Generation ........ PASS  Modules generated: 6, Grounded: True
+[10/12] Resume RAG Analysis ........... PASS  Skills: 3, Score: 55
+[11/12] Redis Caching ................. PASS  Cache write & read verified
+[12/12] API Health Endpoints .......... PASS  /health: 200, /health/dependencies: 200
+======================================================================
+VALIDATION SUMMARY: 12/12 CHECKS PASSED
+======================================================================
+```
+
+### 3. Run Automated Tests
+
+Execute all 31 unit, integration, and RAG tests:
+
 ```bash
 cd backend_fastapi
-.\.venv\Scripts\python.exe -m pytest tests -v
-```
-
-### Verified Test Suites:
-- `test_ai_router.py`: AI provider selection and strict Pydantic output validation.
-- `test_interview.py`: Deterministic score aggregation, difficulty weights, classification thresholds, readiness tiers, and end-to-end interview lifecycle.
-- `test_video_solution.py`: Educational whiteboard storyboard generation and math/programming validation.
-- `test_roadmap.py`: Dynamic syllabus generation and must-know tool extraction.
-- `test_resume.py`: Resume ATS parsing and scorecard audit.
-- `test_auth.py` & `test_billing.py`: Authentication session cookies, coin economy, and Razorpay flows.
-
-Run frontend production build validation:
-```bash
-cd frontend
-npm run build
+pytest tests -v
 ```
 
 ---
 
-## 🚢 Deployment
+## 🐳 Docker Compose Architecture
 
-- **Backend**: Hosted on [Render](https://render.com) (`https://fresherinterview.onrender.com`) via `render.yaml`.
-- **Frontend**: Hosted on [Vercel](https://vercel.com) (`https://fresherai-silk.vercel.app`).
+Run the full platform locally with all four services:
+
+```bash
+# Start all containers
+docker compose up --build
+
+# Verify config
+docker compose config
+```
+
+### Services & Ports:
+| Service | Image / Build | Port | Purpose |
+| :--- | :--- | :--- | :--- |
+| `frontend` | `./frontend/Dockerfile` | `5173:80` | React 19 UI with Nginx reverse proxy |
+| `backend` | `./backend_fastapi/Dockerfile` | `8000:8000` | FastAPI application server |
+| `redis` | `redis:7-alpine` | `6379:6379` | In-memory caching & session state |
+| `qdrant` | `qdrant/qdrant:latest` | `6333:6333` | Vector search & knowledge indexing |
+
+Containers communicate using internal Docker DNS names (`backend:8000`, `redis:6379`, `qdrant:6333`).
+
+---
+
+## 🔍 Core Platform Components
+
+### 1. Authoritative Knowledge Base (`fresher_ai_kb`)
+- The single source of truth containing 25 career roles, 139+ canonical skills, verified YouTube educators and playlists (India-relevant & global), portfolio projects, interview question rubrics, and week-by-week progressive outlines.
+
+### 2. Qdrant Service (`app/services/qdrant_service.py`)
+- Manages collection lifecycle with strict 768-dim validation.
+- Creates payload indexes on `entity_type`, `role_ids`, `skill_ids`, `difficulty`, `category`.
+- Supports filtered vector similarity search with cosine distance.
+
+### 3. Skill Gap Engine (`app/services/skill_gap_engine.py`)
+- Normalizes informal candidate skills (`"ReactJS"` $\to$ `"React"`, `"Fast API"` $\to$ `"FastAPI"`, `"Mongo"` $\to$ `"MongoDB"`).
+- Compares candidate skills against role requirements to categorize skills into `Strong`, `Partial`, and `Missing`.
+- Orders missing skills to respect progressive learning prerequisites (Beginner $\to$ Intermediate $\to$ Advanced).
+
+### 4. RAG Roadmap Agent (`app/agents/roadmap_agent.py`)
+- Grounded strictly in retrieved Knowledge Base records.
+- Skips already mastered fundamentals and prioritizes missing skill gaps.
+- Replaces generic YouTube search links with verified playlists and documentation.
+
+### 5. RAG Resume Agent (`app/agents/resume_agent.py`)
+- Normalizes resume skills against canonical KB skills.
+- Retrieves target role expectations and evidence patterns from Qdrant.
+- Adheres to the Google X-Y-Z formula (`Accomplished [X] as measured by [Y] by doing [Z]`) using bracketed placeholders (`[X]%`) to prevent metric hallucination.
+
+### 6. Health Check Endpoints
+- `GET /health`: Lightweight service ping (`{"status": "ok"}`).
+- `GET /health/dependencies`: Deep health report on Backend, Redis, Qdrant, and Database.
+
+---
+
+## ☁️ Future GCP Deployment Target
+
+When ready for Google Cloud Platform production deployment:
+
+```text
+GitHub Push (main)
+        ↓
+GitHub Actions (CI/CD)
+        ↓
+Google Artifact Registry (Container Images)
+        ↓
+Google Cloud Run (FastAPI Backend Container)
+        │
+        ├── Google Cloud Memorystore (Redis)
+        ├── Supabase PostgreSQL / Cloud SQL
+        └── Qdrant Cloud (Managed Vector DB)
+```
+
+- **Cloud Run**: Host containerized FastAPI with automatic autoscaling to zero.
+- **Secret Manager**: Securely inject `GEMINI_API_KEY`, `GROQ_API_KEY`, `SUPABASE_KEY`.
+- **Memorystore**: Managed Redis cluster for distributed caching.
+- **Vercel / Cloud Run**: Frontend hosting with global CDN.
 
 ---
 
 ## 📄 License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+Fresher.AI is proprietary software. All rights reserved.

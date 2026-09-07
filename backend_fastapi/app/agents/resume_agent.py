@@ -1,48 +1,97 @@
 import json
-import re
 import logging
-from typing import Dict, Any, Optional
+import re
+from typing import Any, Dict, List, Optional
 from app.ai.provider_router import ai_router
-from app.ai.schemas import TaskType, AIRequest, ResumeATSAnalysisSchema
+from app.ai.schemas import AIRequest, TaskType
 from app.core.redis import get_redis
+from app.services.kb_loader import kb_loader
+from app.services.retrieval_service import retrieval_service
+from app.services.skill_gap_engine import skill_gap_engine
 
 logger = logging.getLogger("fresherai.resume_agent")
 
-RESUME_DEEP_PROMPT = """
-You are a Principal Tech Recruiter and ATS Algorithm Specialist with 15+ years of experience at top-tier tech firms.
+RAG_RESUME_PROMPT = """
+You are a Principal Tech Recruiter, ATS Algorithm Specialist, and Hiring Manager.
 Thoroughly analyze the candidate's resume text below and produce a comprehensive ATS audit and quantifiable bullet improvement plan.
+
+Ground your evaluation and keyword suggestions in the verified Fresher.AI Knowledge Base expectations provided below.
 
 Resume Text:
 {resume_text}
 
-EVALUATION CRITERIA:
-1. "name": Candidate full name.
-2. "email": Candidate email address.
-3. "phone": Candidate phone number.
-4. "summary": Concise executive summary (2-3 sentences).
-5. "skills": Array of technical skills, frameworks, languages, and tools found.
-6. "projects": Array of project objects with "name" and "description".
-7. "education": Array of education entries.
-8. "experience": Array of work / internship entries.
-9. "strengths": 3-5 specific candidate strengths with technical justification.
-10. "weaknesses": 3-5 specific weak points or missing elements.
-11. "missingSkills": 4-6 high-demand industry skills that are missing for their target domain.
-12. "suggestedRole": Best-fit job title (e.g. "Full Stack Engineer", "Backend Developer", "ML Engineer").
-13. "score": Overall ATS score (0-100).
-14. "atsFormattingScore": Score (0-100) on keyword density and ATS scannability.
-15. "sectionsDetected": Object with boolean flags for: "contactInfo", "summary", "experience", "education", "skills", "projects".
-16. "bulletImprovements": Array of 3-4 objects containing:
-    - "original": A weak bullet point from the resume.
-    - "improved": A high-impact revision following Google's X-Y-Z formula: "Accomplished [X] as measured by [Y] by doing [Z]".
-    - "reason": Why the revision performs better in recruiter screening.
-17. "recommendations": Exactly 5 actionable recommendations to boost recruiter callback rates.
+VERIFIED ROLE EXPECTATIONS & RESUME EVIDENCE (RAG CONTEXT):
+--------------------------------------------------
+Target Role: {target_role}
+Canonical Role Skills: {role_skills}
+Role Focus Areas: {role_focus}
+--------------------------------------------------
 
-Return ONLY valid JSON.
+CRITICAL EVALUATION RULES:
+1. Normalize detected skills to standard canonical skill names (e.g. "React", "FastAPI", "Docker", "PostgreSQL").
+2. DO NOT fabricate metrics or impact figures. If a candidate bullet lacks measurable impact, use clear bracketed placeholders like "[X]%", "[Y] requests/sec", or "[Z] users" indicating where they should insert their own real numbers.
+3. Improve bullets using Google's X-Y-Z formula: "Accomplished [X] as measured by [Y] by doing [Z]".
+4. Return ONLY valid JSON matching this schema:
+{{
+  "name": "Candidate Name",
+  "email": "candidate@example.com",
+  "phone": "+1-555-0199",
+  "summary": "Executive summary (2-3 sentences)",
+  "skills": ["Canonical Skill 1", "Canonical Skill 2"],
+  "projects": [
+    {{"name": "Project Name", "description": "Short description"}}
+  ],
+  "education": ["Education entry"],
+  "experience": ["Work / Internship entry"],
+  "strengths": ["Strength 1 with technical context", "Strength 2"],
+  "weaknesses": ["Weakness 1", "Weakness 2"],
+  "missingSkills": ["Missing Skill 1", "Missing Skill 2"],
+  "suggestedRole": "{target_role}",
+  "score": 80,
+  "atsFormattingScore": 85,
+  "sectionsDetected": {{
+    "contactInfo": true,
+    "summary": true,
+    "experience": true,
+    "education": true,
+    "skills": true,
+    "projects": true
+  }},
+  "bulletImprovements": [
+    {{
+      "original": "Weak bullet from resume",
+      "improved": "High impact bullet using Google X-Y-Z formula with placeholders like [X]%",
+      "reason": "Why this improves recruiter and ATS screening"
+    }}
+  ],
+  "recommendations": [
+    "Actionable recommendation 1",
+    "Actionable recommendation 2",
+    "Actionable recommendation 3",
+    "Actionable recommendation 4",
+    "Actionable recommendation 5"
+  ]
+}}
 """
 
 
-def _fallback_resume_analysis(text: str) -> Dict[str, Any]:
-    """Heuristic fallback parser for offline/test environments."""
+def _extract_initial_skills(text: str) -> List[str]:
+    """Scans text for common tech keywords and normalizes them."""
+    found_skills = []
+    canonical_skills = kb_loader.get_canonical_skills()
+
+    for s_id, s_data in canonical_skills.items():
+        name = s_data["name"]
+        # Search word boundary
+        pattern = r"\b" + re.escape(name.lower()) + r"\b"
+        if re.search(pattern, text.lower()):
+            found_skills.append(name)
+
+    return skill_gap_engine.normalize_skills_list(found_skills)
+
+
+def _fallback_resume_analysis(text: str, target_role: str = "Full Stack Developer") -> Dict[str, Any]:
+    """Deterministic heuristic fallback parser adhering strictly to non-fabricated metrics rules."""
     email_match = re.search(r"[\w\.-]+@[\w\.-]+\.\w+", text)
     email = email_match.group(0) if email_match else "candidate@example.com"
 
@@ -52,45 +101,41 @@ def _fallback_resume_analysis(text: str) -> Dict[str, Any]:
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     name = lines[0] if lines else "Fresher Candidate"
 
-    common_skills = [
-        "Python", "JavaScript", "TypeScript", "React", "Node.js", "FastAPI",
-        "Express", "MongoDB", "PostgreSQL", "Supabase", "Docker", "Git",
-        "HTML", "CSS", "TailwindCSS", "Redux", "REST API", "GraphQL", "AWS"
-    ]
-    detected_skills = [s for s in common_skills if s.lower() in text.lower()]
+    detected_skills = _extract_initial_skills(text)
     if not detected_skills:
         detected_skills = ["Python", "FastAPI", "React", "SQL", "Git"]
 
-    score = min(95, max(65, 50 + len(detected_skills) * 4))
+    # Calculate skill gap against target role
+    gap_result = skill_gap_engine.calculate_skill_gap(target_role, detected_skills)
+    missing_skill_names = [s["name"] for s in gap_result.get("missing_skills", [])[:5]]
+    if not missing_skill_names:
+        missing_skill_names = ["Docker", "Redis", "CI/CD", "Unit Testing"]
+
+    score = min(95, max(60, 50 + len(detected_skills) * 3))
 
     return {
         "name": name,
         "email": email,
         "phone": phone,
-        "summary": "Software engineer with hands-on experience building modern full-stack web applications and cloud services.",
+        "summary": f"Engineer with practical experience in {', '.join(detected_skills[:3])}, focused on scalable web and cloud solutions.",
         "skills": detected_skills,
         "projects": [
-            "Fresher.AI Platform - AI mock interview and ATS evaluation platform",
-            "Cloud Microservices API - High-throughput REST API with automated testing"
+            {"name": "Fresher.AI Platform", "description": "Mock interview and career roadmap platform."},
+            {"name": "Cloud Microservices API", "description": "RESTful endpoints with structured database schema."}
         ],
         "education": ["Bachelor of Technology in Computer Science & Engineering"],
-        "experience": ["Software Engineering Intern - Full Stack Development"],
+        "experience": ["Software Engineering Intern - Development"],
         "strengths": [
-            "Hands-on proficiency with modern web stacks",
-            "Clear technical project demonstrations",
-            "Solid grasp of relational databases and REST APIs"
+            f"Demonstrated proficiency in core competencies ({', '.join(detected_skills[:3])}).",
+            "Clear project deliverables with modern toolchains.",
+            "Solid grasp of asynchronous programming and database operations."
         ],
         "weaknesses": [
-            "Quantifiable metrics and business impact numbers could be expanded",
-            "System scaling and cloud deployment details could be deeper"
+            "Quantifiable metrics and business impact numbers are missing from project descriptions.",
+            f"High-demand industry competencies ({', '.join(missing_skill_names[:2])}) are not yet featured on the resume."
         ],
-        "missingSkills": [
-            "Redis / Distributed Caching",
-            "Docker / Containerization",
-            "CI/CD Pipeline Automation",
-            "Unit Testing & Integration Drills"
-        ],
-        "suggestedRole": "Full Stack Developer",
+        "missingSkills": missing_skill_names,
+        "suggestedRole": target_role,
         "score": score,
         "atsFormattingScore": 85,
         "sectionsDetected": {
@@ -99,31 +144,41 @@ def _fallback_resume_analysis(text: str) -> Dict[str, Any]:
             "experience": True,
             "education": True,
             "skills": True,
-            "projects": True
+            "projects": True,
         },
         "bulletImprovements": [
             {
                 "original": "Worked on backend APIs and database queries.",
-                "improved": "Engineered 12+ RESTful FastAPI endpoints serving 5,000+ daily requests, reducing average query latency by 35% using indexing and connection pooling.",
-                "reason": "Quantifies scale and demonstrates tangible performance optimizations using Google's X-Y-Z formula."
+                "improved": "Engineered [X]+ RESTful endpoints using FastAPI and PostgreSQL, reducing latency by [Y]% through connection pooling and query indexing.",
+                "reason": "Quantifies scale and demonstrates tangible performance optimizations following Google's X-Y-Z formula with candidate-measured metrics."
+            },
+            {
+                "original": "Built frontend user interface using React.",
+                "improved": "Developed modular UI components in React and TypeScript for [X]+ user workflows, improving Lighthouse performance score to [Y]+.",
+                "reason": "Highlights modern component patterns and measurable frontend performance metrics."
             }
         ],
         "recommendations": [
-            "Add quantifiable production metrics to every project bullet point.",
-            "Incorporate high-demand backend skills like Redis, Docker, and CI/CD.",
-            "Tailor technical keywords to match specific job posting requirements.",
-            "Include live deployed links and GitHub repository badges.",
-            "Refine executive summary to highlight core technical passion."
+            "Add measurable results to each project bullet using the [X]% placeholder formula.",
+            f"Add high-demand target role competencies ({', '.join(missing_skill_names[:3])}) to the skills section.",
+            "Ensure GitHub repository and live deployed demo links are included for each project.",
+            "Tailor project bullet keywords directly to specific target job descriptions.",
+            "Refine executive summary to state your primary technical specialization."
         ]
     }
 
 
-async def analyze_resume_text(resume_text: str, user_id: Optional[str] = None) -> Dict[str, Any]:
+async def analyze_resume_text(
+    resume_text: str,
+    user_id: Optional[str] = None,
+    target_role: Optional[str] = None,
+) -> Dict[str, Any]:
     """
-    Analyzes resume text using Gemini deep reasoning (with Groq fallback)
-    and caches the compressed structured context in Redis for fast interview personalization.
+    RAG-powered resume analysis.
+    Extracts candidate skills, normalizes them against fresher_ai_kb, evaluates against
+    target role requirements from Qdrant, and generates non-fabricated recommendations.
     """
-    # Check Redis cache if user_id is provided
+    # 1. Check Redis cache if user_id is provided
     if user_id:
         try:
             redis_client = await get_redis()
@@ -135,27 +190,60 @@ async def analyze_resume_text(resume_text: str, user_id: Optional[str] = None) -
         except Exception as cache_err:
             logger.warning(f"Redis cache check notice: {cache_err}")
 
-    prompt = RESUME_DEEP_PROMPT.format(resume_text=resume_text[:12000])
+    # 2. Extract initial skills & identify target role
+    initial_skills = _extract_initial_skills(resume_text)
+    chosen_role = target_role or "Full Stack Developer"
+    if not target_role:
+        # Heuristic role detection based on detected skills
+        skills_str = " ".join(initial_skills).lower()
+        if any(x in skills_str for x in ["llm", "rag", "embeddings", "langchain", "langgraph"]):
+            chosen_role = "AI Engineer"
+        elif any(x in skills_str for x in ["docker", "kubernetes", "terraform", "ci/cd"]):
+            chosen_role = "DevOps Engineer"
+        elif any(x in skills_str for x in ["pandas", "pytorch", "scikit-learn", "numpy"]):
+            chosen_role = "Data Scientist"
+
+    # 3. Retrieve target role info from KB
+    role_meta = kb_loader.match_role(chosen_role)
+    role_skills_str = "Python, FastAPI, SQL, Docker, Git"
+    role_focus_str = "Scalable architecture, API design, testing"
+    if role_meta:
+        role_skills_str = ", ".join(role_meta.get("core_skill_ids", [])[:10])
+        role_focus_str = role_meta.get("resume_focus") or role_meta.get("interview_focus", "")
+
+    # 4. Prompt LLM with RAG grounding
+    prompt = RAG_RESUME_PROMPT.format(
+        resume_text=resume_text[:12000],
+        target_role=chosen_role,
+        role_skills=role_skills_str,
+        role_focus=role_focus_str,
+    )
 
     try:
         ai_res = await ai_router.execute(AIRequest(
             task_type=TaskType.RESUME_ATS_ANALYSIS,
             prompt=prompt,
-            system_prompt="You are an expert ATS Resume Analyzer and Executive Recruiter.",
+            system_prompt="You are an expert ATS Resume Auditor and Executive Recruiter.",
             json_mode=True,
             temperature=0.1,
         ))
 
         if ai_res.success and ai_res.parsed_json and isinstance(ai_res.parsed_json, dict):
             parsed = ai_res.parsed_json
-            # Ensure score is an int
+
+            # Ensure skills and missing skills are canonically normalized
+            if "skills" in parsed and isinstance(parsed["skills"], list):
+                parsed["skills"] = skill_gap_engine.normalize_skills_list(parsed["skills"])
+            if "missingSkills" in parsed and isinstance(parsed["missingSkills"], list):
+                parsed["missingSkills"] = skill_gap_engine.normalize_skills_list(parsed["missingSkills"])
+
             if "score" in parsed:
                 try:
                     parsed["score"] = int(parsed["score"])
                 except Exception:
                     parsed["score"] = 75
 
-            # Cache compressed profile in Redis (TTL = 7 days)
+            # Cache profile in Redis (TTL = 7 days)
             if user_id:
                 try:
                     redis_client = await get_redis()
@@ -163,16 +251,16 @@ async def analyze_resume_text(resume_text: str, user_id: Optional[str] = None) -
                         await redis_client.set(
                             f"resume_context:{user_id}",
                             json.dumps(parsed),
-                            ex=7 * 24 * 3600
+                            ex=7 * 24 * 3600,
                         )
                 except Exception as cache_save_err:
                     logger.warning(f"Redis cache save notice: {cache_save_err}")
 
             return parsed
     except Exception as e:
-        logger.warning(f"AI resume analysis notice ({e}), using heuristic parser.")
+        logger.warning(f"AI resume analysis error ({e}), using RAG-grounded heuristic fallback.")
 
-    fallback_data = _fallback_resume_analysis(resume_text)
+    fallback_data = _fallback_resume_analysis(resume_text, target_role=chosen_role)
     if user_id:
         try:
             redis_client = await get_redis()
@@ -186,7 +274,7 @@ async def analyze_resume_text(resume_text: str, user_id: Optional[str] = None) -
 
 async def analyze_resume(resume_text: str, user_id: Optional[str] = None) -> Dict[str, Any]:
     """Compatibility alias for analyze_resume_text."""
-    return await analyze_resume_text(resume_text, user_id)
+    return await analyze_resume_text(resume_text, user_id=user_id)
 
 
 async def analyze_resume_data(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -199,7 +287,6 @@ async def analyze_resume_data(data: Dict[str, Any]) -> Dict[str, Any]:
     if data.get("experience"): text_blocks.append(f"Experience: {json.dumps(data.get('experience'))}")
     if data.get("projects"): text_blocks.append(f"Projects: {json.dumps(data.get('projects'))}")
     if data.get("education"): text_blocks.append(f"Education: {json.dumps(data.get('education'))}")
-    
+
     text = "\n".join(text_blocks)
     return await analyze_resume_text(text)
-

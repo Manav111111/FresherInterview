@@ -4,7 +4,10 @@ import time
 import uuid
 import logging
 from typing import Optional, Dict, Any, List
-import razorpay
+try:
+    import razorpay
+except ImportError:
+    razorpay = None
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.schemas.billing import CreateOrderRequest, VerifyPaymentRequest, OrderResponse, VerifyPaymentResponse
 from app.core.security import get_current_user
@@ -34,8 +37,10 @@ PLANS = {
 _mock_payments_db: Dict[str, Dict[str, Any]] = {}
 
 
-def _get_razorpay_client() -> Optional[razorpay.Client]:
+def _get_razorpay_client() -> Optional[Any]:
     """Returns initialized Razorpay SDK client if credentials are configured."""
+    if razorpay is None:
+        return None
     key_id = settings.RAZORPAY_KEY_ID
     key_secret = settings.RAZORPAY_KEY_SECRET
 
