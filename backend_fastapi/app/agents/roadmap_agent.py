@@ -97,20 +97,17 @@ async def _build_rag_context(
         max_playlists_per_creator=3,
     )
 
-    # Flatten for backward compatibility and prompt building
+    # yt_creators is now a flat list of channel objects (no playlists)
+    # Build yt_items for backwards-compat use inside module building (videoUrl, etc.)
     yt_items = []
-    for c in yt_creators:
-        ch = c.get("channel", {})
-        for p in c.get("playlists", []):
-            yt_items.append({
-                "channel_name": ch.get("name", ""),
-                "title": p.get("title", ""),
-                "url": p.get("url", ""),
-                "language": p.get("language", "English"),
-                "logo_key": ch.get("logo_key", "youtube"),
-                "video_count": p.get("video_count", ""),
-                "verified": True,
-            })
+    for ch in yt_creators:
+        yt_items.append({
+            "channel_name": ch.get("name", ""),
+            "title": ch.get("name", "YouTube Channel"),
+            "url": ch.get("channel_url", "https://www.youtube.com"),
+            "logo_key": "youtube",
+            "verified": True,
+        })
 
     official_docs = await retrieval_service.search_official_docs(role=role, skill=focus_skill, top_k=10)
     career_res = await retrieval_service.search_career_resources(role=role, top_k=8)
@@ -125,10 +122,10 @@ async def _build_rag_context(
         for w in weekly_records[:8]:
             lines.append(f"- Week {w.get('week_number')}: {w.get('phase_name')} | Goal: {w.get('weekly_goal')} | Deliverable: {w.get('deliverable')}")
 
-    if yt_items:
-        lines.append("\nVERIFIED YOUTUBE PLAYLISTS & CHANNELS:")
-        for y in yt_items:
-            lines.append(f"- {y.get('title')} ({y.get('channel_name')}): {y.get('url')}")
+    if yt_creators:
+        lines.append("\nCURATED YOUTUBE CHANNELS (do NOT invent URLs):")
+        for ch in yt_creators:
+            lines.append(f"- {ch.get('name')}: {ch.get('channel_url')} | Topics: {', '.join(ch.get('topics', []))}")
 
     if official_docs:
         lines.append("\nVERIFIED OFFICIAL DOCUMENTATION:")
@@ -161,6 +158,7 @@ async def _build_rag_context(
         "weekly_records": weekly_records,
         "interview_qs": interview_qs,
     }
+
 
 
 def _build_deterministic_modules(

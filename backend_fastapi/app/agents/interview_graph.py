@@ -796,14 +796,26 @@ if HAS_LANGGRAPH:
     interview_graph = workflow.compile()
 else:
     class DirectInterviewGraph:
-        def invoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Fallback graph when LangGraph is not installed.
+        All node functions are async, so ainvoke() calls them directly with await.
+        """
+
+        async def ainvoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
+            """Primary entry-point — mirrors the LangGraph compiled graph interface."""
             action = state.get("action", "start")
             if action == "start":
-                return generate_questions_node(state)
+                return await generate_questions_node(state)
             elif action == "feedback":
-                return evaluate_answer_node(state)
+                return await evaluate_answer_node(state)
             elif action == "summary":
-                return generate_summary_node(state)
-            return generate_questions_node(state)
+                return await generate_summary_node(state)
+            return await generate_questions_node(state)
+
+        def invoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
+            """Sync shim — only used if a sync caller exists (routes use ainvoke)."""
+            import asyncio
+            return asyncio.get_event_loop().run_until_complete(self.ainvoke(state))
 
     interview_graph = DirectInterviewGraph()
+

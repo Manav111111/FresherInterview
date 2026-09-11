@@ -253,141 +253,83 @@ class RetrievalService:
         max_playlists_per_creator: int = 3,
     ) -> List[Dict[str, Any]]:
         """
-        Retrieves curated YouTube creators and their handpicked playlists tailored
-        to the candidate's target role and skill gaps.
-        Returns up to top_k_creators (default 5), with 2-3 verified playlists per creator.
-        Strictly excludes unverified or pending resources.
+        Returns a list of curated YouTube CHANNELS tailored to the candidate's
+        target role and skill gaps.
+
+        Output schema per channel:
+        {
+            "channel_id":       str,   # stable registry ID
+            "name":             str,   # display name
+            "channel_url":      str,   # verified channel URL
+            "avatar_initials":  str,   # fallback text avatar (2-3 chars)
+            "avatar_color":     str,   # hex background colour for fallback
+            "topics":           list[str],   # canonical topic tags
+            "best_for":         str,   # one-sentence description
+        }
+
+        NOTE: Playlists, subscriber counts, and verification badges are
+        intentionally excluded from this response.
         """
         try:
-            from data.youtube_channels import get_playlists
+            from data.channel_registry import get_channel_registry
         except ImportError:
-            from fresher_ai_kb.data.youtube_channels import get_playlists
+            from fresher_ai_kb.data.channel_registry import get_channel_registry
 
         role_lower = (role or "").lower()
         missing = [s.lower() for s in (missing_skills or [])]
-        strong = [s.lower() for s in (strong_skills or [])]
 
-        # 1. Determine role domain priority
-        role_priority_channels: List[str] = []
-        if any(k in role_lower for k in ["ai", "genai", "machine learning", "ml", "data science"]):
-            # AI Engineer priority: CampusX -> Krish Naik -> Codebasics
-            role_priority_channels = ["campusx", "krish_naik", "codebasics"]
+        # ── 1. Role → priority channel IDs ──────────────────────────────────
+        if any(k in role_lower for k in ["ai engineer", "genai", "machine learning", "ml", "data science", "llm"]):
+            priority_ids = ["campusx", "krish_naik", "codebasics"]
         elif any(k in role_lower for k in ["devops", "cloud", "sre", "kubernetes", "infrastructure"]):
-            # DevOps priority: Abhishek Veeramalla -> Gate Smashers
-            role_priority_channels = ["abhishek_veeramalla", "gate_smashers"]
+            priority_ids = ["abhishek_veeramalla", "techworld_nana", "kunal_kushwaha", "gate_smashers"]
         elif any(k in role_lower for k in ["system design", "architect"]):
-            # System Design priority: Gaurav Sen
-            role_priority_channels = ["gaurav_sen"]
+            priority_ids = ["gaurav_sen", "take_u_forward", "kunal_kushwaha"]
         elif any(k in role_lower for k in ["dsa", "algorithm", "competitive", "placement"]):
-            # DSA / Placement priority: Take U Forward -> CodeHelp -> Kunal Kushwaha -> Apna College -> CodeWithHarry
-            role_priority_channels = ["take_u_forward", "codehelp", "kunal_kushwaha", "apna_college", "codewithharry"]
+            priority_ids = ["take_u_forward", "codehelp", "kunal_kushwaha", "apna_college", "codewithharry"]
         elif "backend" in role_lower:
-            # Backend priority: Chai aur Code -> CodeWithHarry -> Thapa Technical -> Sheryians -> Apna College
-            role_priority_channels = ["chai_aur_code", "codewithharry", "thapa_technical", "sheryians", "apna_college"]
+            priority_ids = ["chai_aur_code", "codewithharry", "thapa_technical", "sheryians", "apna_college"]
         else:
-            # Full Stack / Frontend default: Apna College -> CodeWithHarry -> Chai aur Code -> Sheryians -> Thapa Technical
-            role_priority_channels = ["apna_college", "codewithharry", "chai_aur_code", "sheryians", "thapa_technical"]
+            # Full stack / frontend default
+            priority_ids = ["apna_college", "codewithharry", "chai_aur_code", "sheryians", "thapa_technical"]
 
-        # 2. Filter verified playlists from registry
-        all_playlists = get_playlists()
-        verified_playlists = [
-            pl for pl in all_playlists
-            if pl.get("verified") is True and pl.get("verification_status") == "verified"
-        ]
+        registry = get_channel_registry()
 
-        # 3. Group playlists by creator and score each playlist based on candidate profile
-        creators_dict: Dict[str, Dict[str, Any]] = {}
-
-        for pl in verified_playlists:
-            ch_id = pl.get("channel_id")
-            if not ch_id:
+        # ── 2. Score every channel ───────────────────────────────────────────
+        scored: List[tuple] = []
+        for ch in registry:
+            if not ch.get("verified", False):
                 continue
+            ch_id = ch["channel_id"]
 
-            # Initialize creator profile if new
-            if ch_id not in creators_dict:
-                creators_dict[ch_id] = {
-                    "channel": {
-                        "id": ch_id,
-                        "name": pl.get("channel_name", "Creator"),
-                        "url": pl.get("channel_url", f"https://www.youtube.com/@{ch_id}"),
-                        "logo_key": pl.get("logo_key") or ch_id,
-                        "subscribers": pl.get("subscribers", "Verified Creator"),
-                        "tags": pl.get("tags", [])[:3],
-                    },
-                    "scored_playlists": [],
-                }
-
-            # Score individual playlist based on relevance & skill gaps
-            base_priority = pl.get("priority", 5)
-            score = float(base_priority)
-
-            pl_text = f"{pl.get('playlist_name', '')} {pl.get('skill_area', '')} {pl.get('skill_ids', '')}".lower()
-            pl_role_area = str(pl.get("role_area", "")).lower()
-
-            # Boost if playlist matches target role
-            if any(k in pl_role_area or k in pl_text for k in role_lower.split()):
-                score += 4.0
-
-            # Missing skills get maximum boost
-            for ms in missing:
-                if ms in pl_text:
-                    score += 6.0
-
-            # If candidate already has strong mastery of the skill, demote beginner tutorials (e.g. Python basics)
-            for ss in strong:
-                if ss in pl_text and ("beginner" in pl_text or "crash course" in pl_text or "fundamentals" in pl_text):
-                    score -= 5.0
-
-            creators_dict[ch_id]["scored_playlists"].append((score, pl))
-
-        # 4. Filter creators that have relevant playlists for this role or are in priority list
-        candidate_creators = []
-        for ch_id, data in creators_dict.items():
-            playlists_with_scores = data["scored_playlists"]
-            if not playlists_with_scores:
-                continue
-
-            # Channel base rank score
-            channel_score = 0.0
-            if ch_id in role_priority_channels:
-                idx = role_priority_channels.index(ch_id)
-                channel_score = 100.0 - (idx * 10.0)
+            # Base priority from role mapping (higher = earlier in priority list)
+            if ch_id in priority_ids:
+                base = float((len(priority_ids) - priority_ids.index(ch_id)) * 20)
             else:
-                # Secondary matching based on top playlist scores
-                top_p_score = max(s for s, _ in playlists_with_scores)
-                channel_score = top_p_score
+                base = 0.0
 
-            candidate_creators.append((channel_score, ch_id, data))
+            # Skill-gap boost — lift channels whose topics cover what the candidate is missing
+            ch_topic_str = " ".join(ch.get("topics", []) + ch.get("skills", [])).lower()
+            for ms in missing:
+                if ms.replace("_", " ") in ch_topic_str or ms.replace(" ", "_") in ch_topic_str:
+                    base += 8.0
 
-        # Sort creators by channel score descending
-        candidate_creators.sort(key=lambda x: x[0], reverse=True)
+            scored.append((base, ch))
 
-        # 5. Format top creators with their top 2-3 playlists
+        # Sort by score descending; stable sort preserves registry ordering for ties
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        # ── 3. Format output (channel-only, no playlists) ────────────────────
         result: List[Dict[str, Any]] = []
-        for _, ch_id, data in candidate_creators[:top_k_creators]:
-            # Sort this creator's playlists by score descending
-            data["scored_playlists"].sort(key=lambda x: x[0], reverse=True)
-            top_pls = [pl for _, pl in data["scored_playlists"][:max_playlists_per_creator]]
-
-            formatted_playlists = []
-            for pl in top_pls:
-                # Clean up skills array
-                skill_raw = pl.get("skill_ids", "")
-                skill_list = [s.replace("skill_", "") for s in skill_raw.split(";") if s]
-
-                formatted_playlists.append({
-                    "resource_id": pl.get("playlist_id"),
-                    "title": pl.get("playlist_name"),
-                    "url": pl.get("url"),
-                    "language": pl.get("language", "Hindi"),
-                    "video_count": pl.get("video_count", ""),
-                    "skills": skill_list,
-                    "verified": True,
-                })
-
+        for _, ch in scored[:top_k_creators]:
             result.append({
-                "channel": data["channel"],
-                "playlists": formatted_playlists,
+                "channel_id":      ch["channel_id"],
+                "name":            ch["name"],
+                "channel_url":     ch["channel_url"],
+                "avatar_initials": ch["avatar_initials"],
+                "avatar_color":    ch["avatar_color"],
+                "topics":          ch["topics"][:5],
+                "best_for":        ch["best_for"],
             })
 
         return result

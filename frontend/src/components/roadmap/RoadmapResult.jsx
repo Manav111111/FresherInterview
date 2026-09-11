@@ -269,11 +269,9 @@ export default function RoadmapResult({ roadmap, onClear }) {
 
       {/* Section B: Curated YouTube Learning Resources */}
       {youtubeList.length > 0 && (
-        <YouTubeLearningSection
-          creators={youtubeList}
-          allPlaylists={roadmap.youtubePlaylists || []}
-        />
+        <YouTubeLearningSection creators={youtubeList} />
       )}
+
 
       {/* Section C: Official Documentation */}
       {docsList.length > 0 && (
