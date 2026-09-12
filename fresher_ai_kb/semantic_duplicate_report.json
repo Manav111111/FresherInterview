@@ -1,0 +1,107 @@
+{
+  "schema_version": "2.0",
+  "total_questions_checked": 760,
+  "domain_counts": {
+    "AI Engineering": 100,
+    "DSA": 120,
+    "Core CS": 100,
+    "Backend": 70,
+    "Frontend": 60,
+    "DevOps/Cloud": 70,
+    "Databases/SQL": 60,
+    "ML/Data Science": 70,
+    "System Design": 60,
+    "Behavioral/HR": 50
+  },
+  "validation_summary": {
+    "total_errors": 0,
+    "total_warnings": 0,
+    "exact_duplicates_count": 0,
+    "semantic_duplicate_candidates_count": 0,
+    "approved_related_pairs_count": 11
+  },
+  "errors": [],
+  "warnings": [],
+  "exact_duplicates": [],
+  "semantic_duplicate_candidates": [],
+  "approved_related_pairs": [
+    {
+      "question_1_id": "ai-enginee-001",
+      "question_2_id": "ai-enginee-028",
+      "similarity_score": 0.762,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "ai-enginee-001",
+      "question_2_id": "ai-enginee-094",
+      "similarity_score": 0.762,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "ai-enginee-010",
+      "question_2_id": "ai-enginee-037",
+      "similarity_score": 0.739,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "ai-enginee-010",
+      "question_2_id": "ai-enginee-096",
+      "similarity_score": 0.739,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "ai-enginee-019",
+      "question_2_id": "ai-enginee-098",
+      "similarity_score": 0.706,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "ai-enginee-012",
+      "question_2_id": "ai-enginee-048",
+      "similarity_score": 0.7,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "ai-enginee-004",
+      "question_2_id": "ai-enginee-031",
+      "similarity_score": 0.706,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "ai-enginee-006",
+      "question_2_id": "ai-enginee-033",
+      "similarity_score": 0.706,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "ai-enginee-018",
+      "question_2_id": "ai-enginee-036",
+      "similarity_score": 0.7,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "dsa-091",
+      "question_2_id": "dsa-099",
+      "similarity_score": 0.706,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    },
+    {
+      "question_1_id": "system-des-050",
+      "question_2_id": "system-des-053",
+      "similarity_score": 0.733,
+      "relationship": "base_and_probing_variant",
+      "status": "approved_related"
+    }
+  ],
+  "removed_questions": []
+}

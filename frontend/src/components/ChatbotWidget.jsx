@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   FiMessageSquare,
@@ -6,23 +7,23 @@ import {
   FiSend,
   FiCopy,
   FiCheck,
-  FiMinimize2,
-  FiMaximize2,
   FiChevronRight,
+  FiExternalLink,
 } from "react-icons/fi";
-import { BsStars, BsLinkedin } from "react-icons/bs";
+import { BsStars } from "react-icons/bs";
 
 import { sendChatMessage } from "../api/chat.api";
 
-const QUICK_PROMPTS = [
-  { label: "💼 LinkedIn Post: New Job", text: "Write a LinkedIn post about starting my new role as a Software Engineer" },
-  { label: "💡 Theory: What is Docker?", text: "What is Docker and why is it used in software engineering?" },
-  { label: "📐 Math: Solve 2x + 5 = 15", text: "Solve the linear equation 2x + 5 = 15 step by step" },
-  { label: "💻 DSA: Binary Search", text: "How does Binary Search work and what is its time complexity?" },
-  { label: "🎯 Interview: Tell me about yourself", text: "How should I structure the answer for 'Tell me about yourself'?" },
+const DEFAULT_QUICK_PROMPTS = [
+  { label: "🎯 How does Fresher.AI work?", text: "What is Fresher.AI and how can it help me prepare for jobs?" },
+  { label: "🎤 Start an AI Interview", text: "Where can I practice mock interviews?" },
+  { label: "📄 Analyze My Resume", text: "How does the ATS Resume Scorer work?" },
+  { label: "🗺️ Build My Roadmap", text: "How do the personalized learning roadmaps work?" },
+  { label: "❓ What can I do here?", text: "What features are available on this platform?" },
 ];
 
 export default function ChatbotWidget({ user }) {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,8 +32,15 @@ export default function ChatbotWidget({ user }) {
     {
       role: "assistant",
       content:
-        "👋 Hello! I am your **Fresher.AI Career & Tech Assistant**.\n\nI can help you with:\n• 💼 **Ready-to-Post LinkedIn Announcements** (jobs, internships, projects)\n• 💡 **Clear Theory & Architecture Explanations** (Docker, REST, System Design)\n• 📐 **Step-by-Step Math & Physics Solutions**\n• 🎯 **Interview Answer Strategies**\n\nHow can I help you today?",
+        "👋 Hi! I am the **Fresher.AI Assistant**.\n\nI'm your AI guide for this platform. I can help you understand Fresher.AI, navigate features, prepare for interviews, analyze your tech resume, build personalized learning roadmaps, and answer technical questions.\n\nHow can I help you today?",
       intent: "general",
+      links: [],
+      suggested_actions: [
+        "Start an AI Interview",
+        "Analyze My Resume",
+        "Build Learning Roadmap",
+        "What can I do here?",
+      ],
     },
   ]);
 
@@ -78,6 +86,8 @@ export default function ChatbotWidget({ user }) {
           role: "assistant",
           content: res.reply || "I'm ready for your next question!",
           intent: res.intent || "general",
+          links: res.links || [],
+          suggested_actions: res.suggested_actions || [],
         },
       ]);
     } catch (err) {
@@ -86,8 +96,9 @@ export default function ChatbotWidget({ user }) {
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I encountered a temporary connection issue. Please ask again.",
+          content: "Sorry, I encountered a temporary connection issue. Please ask again in a moment.",
           intent: "general",
+          links: [],
         },
       ]);
     } finally {
@@ -100,6 +111,13 @@ export default function ChatbotWidget({ user }) {
     setCopiedIndex(idx);
     setTimeout(() => setCopiedIndex(null), 2500);
   };
+
+  // Get active suggestion chips from latest assistant message or defaults
+  const latestAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
+  const activeChips =
+    latestAssistantMsg?.suggested_actions && latestAssistantMsg.suggested_actions.length > 0
+      ? latestAssistantMsg.suggested_actions.map((txt) => ({ label: txt, text: txt }))
+      : DEFAULT_QUICK_PROMPTS;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 font-sans">
@@ -114,7 +132,7 @@ export default function ChatbotWidget({ user }) {
             whileTap={{ scale: 0.94 }}
             onClick={() => setIsOpen(true)}
             className="group relative flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-tr from-[#4F46E5] to-[#7C3AED] text-white shadow-2xl shadow-indigo-500/40 border border-white/20 transition-all cursor-pointer"
-            title="Ask Fresher.AI (LinkedIn, Theory, Math & Career)"
+            title="Ask Fresher.AI Assistant"
           >
             {/* Pulsing indicator */}
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
@@ -126,7 +144,7 @@ export default function ChatbotWidget({ user }) {
 
             {/* Hover Tooltip */}
             <span className="absolute right-16 top-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 text-white text-[11px] font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg backdrop-blur-xs">
-              ✨ Ask AI Assistant
+              ✨ Ask Fresher.AI
             </span>
           </motion.button>
         )}
@@ -154,7 +172,7 @@ export default function ChatbotWidget({ user }) {
                   </h3>
                   <div className="flex items-center gap-1.5 text-[10px] text-white/80 font-medium">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Smart Intent Router • Ready</span>
+                    <span>Website Brain • Active</span>
                   </div>
                 </div>
               </div>
@@ -172,7 +190,7 @@ export default function ChatbotWidget({ user }) {
 
             {/* Quick Suggestion Chips */}
             <div className="p-2.5 px-3.5 bg-slate-50 border-b border-slate-200/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-              {QUICK_PROMPTS.map((item, idx) => (
+              {activeChips.slice(0, 5).map((item, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSendMessage(item.text)}
@@ -187,7 +205,6 @@ export default function ChatbotWidget({ user }) {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
               {messages.map((msg, idx) => {
                 const isUser = msg.role === "user";
-                const isLinkedIn = msg.intent === "linkedin_post" || msg.content.includes("#");
 
                 return (
                   <motion.div
@@ -203,39 +220,33 @@ export default function ChatbotWidget({ user }) {
                           : "bg-slate-100/90 text-slate-800 rounded-bl-xs border border-slate-200/70"
                       }`}
                     >
-                      {/* LinkedIn Ready-to-Post Badge */}
-                      {!isUser && isLinkedIn && (
-                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/80 text-[10px] font-bold text-indigo-700">
-                          <span className="flex items-center gap-1">
-                            <BsLinkedin size={12} className="text-[#0A66C2]" />
-                            <span>LinkedIn Ready-to-Post</span>
-                          </span>
-                          <button
-                            onClick={() => handleCopy(msg.content, idx)}
-                            className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-200 px-2 py-0.5 rounded-md transition cursor-pointer"
-                          >
-                            {copiedIndex === idx ? (
-                              <>
-                                <FiCheck size={11} className="text-emerald-600" />
-                                <span className="text-emerald-600">Copied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <FiCopy size={11} />
-                                <span>Copy Post</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Content text */}
+                      {/* Message Content */}
                       <div className="whitespace-pre-wrap font-sans">
                         {msg.content}
                       </div>
 
-                      {/* Copy button for other assistant responses */}
-                      {!isUser && !isLinkedIn && msg.content.length > 50 && (
+                      {/* Verified Navigation Links */}
+                      {!isUser && msg.links && msg.links.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex flex-wrap gap-1.5">
+                          {msg.links.map((link, lIdx) => (
+                            <button
+                              key={lIdx}
+                              onClick={() => {
+                                navigate(link.path);
+                                setIsOpen(false);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] hover:from-[#4338CA] hover:to-[#6D28D9] text-white text-[11px] font-semibold shadow-xs transition-all cursor-pointer"
+                              title={link.description || link.name}
+                            >
+                              <span>{link.name}</span>
+                              <FiChevronRight size={12} />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Copy button */}
+                      {!isUser && msg.content.length > 30 && (
                         <div className="pt-2 mt-2 border-t border-slate-200/50 flex justify-end">
                           <button
                             onClick={() => handleCopy(msg.content, idx)}
@@ -281,13 +292,19 @@ export default function ChatbotWidget({ user }) {
                 }}
                 className="flex items-center gap-2"
               >
-                <input
+                <textarea
                   ref={inputRef}
-                  type="text"
+                  rows={1}
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  placeholder="Ask a question or request a LinkedIn post..."
-                  className="flex-1 px-4 py-2.5 rounded-2xl bg-slate-100 border border-slate-200/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 text-xs text-slate-900 placeholder:text-slate-400 transition"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Ask anything about Fresher.AI, interviews, or tech concepts..."
+                  className="flex-1 px-4 py-2.5 rounded-2xl bg-slate-100 border border-slate-200/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 text-xs text-slate-900 placeholder:text-slate-400 transition resize-none max-h-24"
                   disabled={isLoading}
                 />
                 <button

@@ -20,6 +20,8 @@ class ChatMessageResponse(BaseModel):
     success: bool = True
     reply: str
     intent: str
+    links: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="Verified application navigation links")
+    suggested_actions: Optional[List[str]] = Field(default_factory=list, description="Contextual action suggestions")
     provider: Optional[str] = "groq"
     model: Optional[str] = "llama-3.3-70b-versatile"
 
@@ -30,15 +32,18 @@ async def handle_chat_message(
     request: Request,
 ):
     """
-    Intelligent chatbot assistant endpoint with intent classification.
-    Supports Smart LinkedIn Post Generation, Theory explanations, and Math calculations.
+    Intelligent Fresher.AI Website Assistant endpoint.
+    Provides verified platform facts, feature guidance, safe navigation links,
+    career roadmaps, interview prep, and general technical explanations.
     """
     message = (body.message or "").strip()
     if not message:
         return ChatMessageResponse(
             success=True,
-            reply="Hello! How can I assist you with your career preparation, technical questions, or LinkedIn posts today?",
+            reply="Hello! I am the Fresher.AI Assistant. How can I assist you with your career preparation, mock interviews, or platform features today?",
             intent="general",
+            links=[],
+            suggested_actions=["Start an AI Interview", "Analyze My Resume", "Build Learning Roadmap"],
             provider="local",
             model="default",
         )
@@ -67,6 +72,8 @@ async def handle_chat_message(
         success=res.get("success", True),
         reply=res.get("reply", "I'm ready to assist you. Please ask your question!"),
         intent=res.get("intent", "general"),
+        links=res.get("links", []),
+        suggested_actions=res.get("suggested_actions", []),
         provider=res.get("provider", "groq"),
         model=res.get("model", "llama-3.3-70b-versatile"),
     )

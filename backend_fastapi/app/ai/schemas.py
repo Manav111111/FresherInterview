@@ -73,14 +73,46 @@ class AnswerEvaluationSchema(BaseModel):
     result: str = Field(default="partially_correct", description="correct, partially_correct, incorrect, or insufficient")
     technical_rubric: Optional[TechnicalRubric] = None
     hr_rubric: Optional[HRRubric] = None
+    correct_points: List[str] = Field(default_factory=list, description="Demonstrated valid concepts")
+    partial_points: List[str] = Field(default_factory=list, description="Partially articulated concepts")
+    missing_points: List[str] = Field(default_factory=list, description="Omitted critical concepts")
+    incorrect_points: List[str] = Field(default_factory=list, description="Factual errors/misconceptions")
+    concepts_demonstrated: List[str] = Field(default_factory=list, description="Concepts candidate proved they know")
     strengths: List[str] = Field(default_factory=list)
-    missing_points: List[str] = Field(default_factory=list)
-    incorrect_points: List[str] = Field(default_factory=list)
     what_you_should_understand: Optional[str] = None
     ideal_answer_summary: str = ""
     approach_guidance: List[str] = Field(default_factory=list)
     feedback: str = ""
     improvements: List[str] = Field(default_factory=list)
+    follow_up_recommended: bool = False
+    follow_up_reason: Optional[str] = None
+    is_idontknow: bool = False
+
+
+class NextActionDecision(BaseModel):
+    action: str = Field(
+        default="technical_question",
+        description="follow_up, resume_deep_dive, technical_question, scenario_question, increase_difficulty, decrease_difficulty, topic_switch, or finish"
+    )
+    reason: str = Field(default="", description="Justification for routing decision")
+    target_topic: Optional[str] = None
+    target_difficulty: Optional[str] = None
+
+
+class VerifiedResumeEvidence(BaseModel):
+    projects: List[Dict[str, Any]] = Field(default_factory=list)
+    skills: List[str] = Field(default_factory=list)
+    claims: List[str] = Field(default_factory=list)
+
+
+class InterviewPlanSchema(BaseModel):
+    role: str
+    candidate_level: str = "fresher"
+    target_difficulty: str = "medium"
+    priority_topics: List[str] = Field(default_factory=list)
+    skill_gaps: List[str] = Field(default_factory=list)
+    target_primary_questions: int = 6
+    max_followups: int = 2
 
 
 

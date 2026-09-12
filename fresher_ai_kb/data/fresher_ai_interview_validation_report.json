@@ -1,0 +1,31 @@
+{
+  "schema_version": "2.0",
+  "total_questions": 760,
+  "domain_counts": {
+    "AI Engineering": 100,
+    "DSA": 120,
+    "Core CS": 100,
+    "Backend": 70,
+    "Frontend": 60,
+    "DevOps/Cloud": 70,
+    "Databases/SQL": 60,
+    "ML/Data Science": 70,
+    "System Design": 60,
+    "Behavioral/HR": 50
+  },
+  "validation": {
+    "errors": [],
+    "warnings": [],
+    "exact_duplicate_count": 0,
+    "expanded_items_for_review": 558
+  },
+  "production_rules": [
+    "RAG retrieves grounded questions; it does not generate the primary question pool.",
+    "LangGraph selects and sequences retrieved questions, manages follow-ups, difficulty, coverage, and state.",
+    "LLM evaluation must award partial credit and separately list correct concepts, missing concepts, and misconceptions.",
+    "Embedding similarity is for retrieval/deduplication support, never the sole correctness judge.",
+    "Resume questions must use only verified resume/project evidence; never invent technologies or achievements.",
+    "A six-primary-question interview may include up to two adaptive follow-ups per primary question.",
+    "Before production, run semantic duplicate detection and human review of expanded variants."
+  ]
+}

@@ -64,8 +64,8 @@ async def start_interview(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Initializes a new mock interview session using LangGraph agent questions.
-    Saves interview state in Supabase and returns the first question.
+    Initializes a new stateful mock interview session using LangGraph adaptive engine.
+    Builds interview plan, extracts verified resume evidence, and returns Question 1.
     """
     user_id = current_user.get("userId") or current_user.get("id")
 
@@ -75,7 +75,7 @@ async def start_interview(
             detail="Interview type and role are required",
         )
 
-    # 1. Run LangGraph to generate tailored questions
+    # 1. Run LangGraph to build plan and select Question 1
     try:
         result = await interview_graph.ainvoke({
             "action": "start",
@@ -84,40 +84,33 @@ async def start_interview(
             "useResume": body.useResume,
             "resume": body.resume or {},
         })
-        questions = result.get("questions", [])
+        first_q = result.get("current_question")
     except Exception as e:
-        logger.error(f"Failed to generate questions with LangGraph: {e}")
+        logger.error(f"Failed to initialize adaptive interview: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate interview questions: {str(e)}",
+            detail=f"Failed to initialize interview: {str(e)}",
         )
 
-    if not questions:
+    if not first_q:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate interview questions",
+            detail="Failed to generate interview question",
         )
 
-    # Ensure default structure on questions
-    formatted_questions = []
-    for q in questions:
-        if isinstance(q, str):
-            formatted_questions.append({
-                "question": q,
-                "difficulty": "easy",
-                "timer": 90,
-                "userAnswer": "",
-                "feedback": {},
-            })
-        elif isinstance(q, dict):
-            formatted_questions.append({
-                "question": q.get("question", ""),
-                "difficulty": q.get("difficulty", "easy"),
-                "timer": q.get("timer", 90),
-                "userAnswer": "",
-                "feedback": {},
-            })
-
+    # Formatted initial question object
+    q1 = {
+        "question_id": first_q.get("question_id", "q_001"),
+        "question": first_q.get("question", ""),
+        "difficulty": first_q.get("difficulty", "medium"),
+        "timer": first_q.get("timer", 90),
+        "topic": first_q.get("topic", "Core Fundamentals"),
+        "source": first_q.get("source", "standard"),
+        "is_follow_up": False,
+        "resume_reference": first_q.get("resume_reference"),
+        "userAnswer": "",
+        "feedback": {},
+    }
 
     interview_id = str(uuid.uuid4())
     db_payload = {
@@ -126,17 +119,29 @@ async def start_interview(
         "type": body.type.lower(),
         "role": body.role,
         "use_resume": body.useResume,
-        "questions": formatted_questions,
+        "questions": [q1],
         "current_question": 0,
         "status": "in-progress",
         "overall_score": 0,
+        "primary_question_count": result.get("primary_question_count", 1),
+        "target_primary_questions": 6,
+        "followup_count": 0,
+        "max_followups_total": 2,
+        "followups_for_current_question": 0,
+        "question_ids_asked": result.get("question_ids_asked", [q1["question_id"]]),
+        "concepts_covered": result.get("concepts_covered", []),
+        "verified_resume_projects": result.get("verified_resume_projects", []),
+        "verified_resume_skills": result.get("verified_resume_skills", []),
+        "skill_gaps": result.get("skill_gaps", []),
+        "answers": [],
+        "evaluations": [],
         "strengths": [],
         "weaknesses": [],
         "recommendations": [],
         "summary": "",
     }
 
-    # 2. Insert into Supabase
+    # 2. Insert into Supabase with local fallback
     supabase = get_supabase()
     try:
         supabase.table("interviews").insert(db_payload).execute()
@@ -144,15 +149,19 @@ async def start_interview(
         logger.warning(f"Supabase interview creation failed ({db_err}). Storing in local fallback.")
         _mock_interviews_db[interview_id] = db_payload
 
-    # 3. Clear user interviews cache
-    await delete_cache(f"interviews:{user_id}")
+    # 3. Cache session in Redis
+    try:
+        await set_cache(f"interview:session:{interview_id}", db_payload, ttl=24 * 3600)
+        await delete_cache(f"interviews:{user_id}")
+    except Exception:
+        pass
 
     return {
         "success": True,
         "interviewId": interview_id,
         "currentQuestion": 0,
-        "totalQuestions": len(formatted_questions),
-        "question": formatted_questions[0],
+        "totalQuestions": 6,
+        "question": q1,
     }
 
 
@@ -162,8 +171,8 @@ async def submit_answer(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Submits the candidate's answer to the current question, evaluates answer via LangGraph feedback agent,
-    and returns feedback along with the next question or final summary.
+    Submits candidate's answer to current question, evaluates with partial credit,
+    decides next action, and returns Question N+1 (or completed final report).
     """
     user_id = current_user.get("userId") or current_user.get("id")
 
@@ -173,22 +182,29 @@ async def submit_answer(
             detail="Interview Id and Answer are required",
         )
 
-    # 1. Fetch interview from Supabase or memory store
-    supabase = get_supabase()
+    # 1. Fetch interview from Redis, Supabase, or memory store
     interview = None
-
     try:
-        res = (
-            supabase.table("interviews")
-            .select("*")
-            .eq("id", body.interviewId)
-            .eq("user_id", user_id)
-            .execute()
-        )
-        if res.data and len(res.data) > 0:
-            interview = res.data[0]
-    except Exception as e:
-        logger.warning(f"Supabase query failed: {e}")
+        cached_sess = await get_cache(f"interview:session:{body.interviewId}")
+        if cached_sess:
+            interview = json.loads(cached_sess) if isinstance(cached_sess, str) else cached_sess
+    except Exception:
+        pass
+
+    if not interview:
+        supabase = get_supabase()
+        try:
+            res = (
+                supabase.table("interviews")
+                .select("*")
+                .eq("id", body.interviewId)
+                .eq("user_id", user_id)
+                .execute()
+            )
+            if res.data and len(res.data) > 0:
+                interview = res.data[0]
+        except Exception as e:
+            logger.warning(f"Supabase query failed: {e}")
 
     if not interview:
         interview = _mock_interviews_db.get(body.interviewId)
@@ -207,7 +223,7 @@ async def submit_answer(
 
     # 2. Get current question
     curr_idx = interview.get("current_question", 0)
-    questions = interview.get("questions", [])
+    questions = list(interview.get("questions", []))
 
     if curr_idx >= len(questions):
         raise HTTPException(
@@ -218,47 +234,46 @@ async def submit_answer(
     current_q = questions[curr_idx]
     current_q["userAnswer"] = body.answer
 
-    # 3. Check if this is the final question
-    completed = (curr_idx + 1 >= len(questions))
-
-    # 4. Invoke LangGraph Feedback & Summary nodes
+    # 3. Invoke LangGraph Adaptive Feedback & Decision
     try:
         result = await interview_graph.ainvoke({
             "action": "feedback",
-            "question": current_q.get("question", ""),
-            "answer": body.answer,
-            "difficulty": current_q.get("difficulty", "medium"),
-            "completed": completed,
-            "role": interview.get("role", ""),
+            "role": interview.get("role", "Software Engineer"),
             "type": interview.get("type", "technical"),
+            "current_question": current_q,
+            "answer": body.answer,
+            "primary_question_count": interview.get("primary_question_count", 1),
+            "target_primary_questions": interview.get("target_primary_questions", 6),
+            "followup_count": interview.get("followup_count", 0),
+            "max_followups_total": interview.get("max_followups_total", 2),
+            "followups_for_current_question": interview.get("followups_for_current_question", 0),
+            "question_ids_asked": interview.get("question_ids_asked", []),
+            "concepts_covered": interview.get("concepts_covered", []),
+            "verified_resume_projects": interview.get("verified_resume_projects", []),
+            "verified_resume_skills": interview.get("verified_resume_skills", []),
+            "skill_gaps": interview.get("skill_gaps", []),
             "questions": questions,
+            "answers": interview.get("answers", []),
+            "evaluations": interview.get("evaluations", []),
         })
     except Exception as e:
-        logger.error(f"LangGraph evaluation error: {e}")
+        logger.error(f"LangGraph adaptive evaluation error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Evaluation failed: {str(e)}",
         )
 
     feedback_data = result.get("feedback", {})
+    completed = result.get("completed", False)
+
+    # Update current question with evaluation
     current_q["feedback"] = feedback_data
-    current_q["score"] = feedback_data.get("score", 75)
-    interview["current_question"] = curr_idx + 1
+    current_q["score"] = feedback_data.get("score", 70)
+    questions[curr_idx] = current_q
 
-    # 5. Handle completion & Gemini Deep Summary
+    # 4. Handle Completion
     if completed:
-        try:
-            summary_res = await interview_graph.ainvoke({
-                "action": "summary",
-                "role": interview.get("role", "Software Engineer"),
-                "type": interview.get("type", "technical"),
-                "questions": questions,
-            })
-            report = summary_res.get("report", {})
-        except Exception as sum_err:
-            logger.warning(f"Summary node fallback notice: {sum_err}")
-            report = {}
-
+        report = result.get("report", {})
         interview["status"] = "completed"
         interview["overall_score"] = report.get("overallScore", feedback_data.get("score", 75))
         interview["readiness"] = report.get("readiness", "Strong / Nearly Ready")
@@ -279,7 +294,22 @@ async def submit_answer(
         interview["weaknesses"] = report.get("priorityImprovements", report.get("weaknesses", []))
         interview["recommendations"] = report.get("recommendations", [])
 
-    # 6. Save update to Supabase and cache active session in Redis
+    else:
+        # Continue interview: append next question
+        next_q = result.get("current_question")
+        questions = result.get("questions", questions)
+        interview["current_question"] = curr_idx + 1
+        interview["primary_question_count"] = result.get("primary_question_count", interview.get("primary_question_count", 1))
+        interview["followup_count"] = result.get("followup_count", 0)
+        interview["followups_for_current_question"] = result.get("followups_for_current_question", 0)
+        interview["question_ids_asked"] = result.get("question_ids_asked", [])
+        interview["concepts_covered"] = result.get("concepts_covered", [])
+        interview["answers"] = result.get("answers", [])
+        interview["evaluations"] = result.get("evaluations", [])
+
+    interview["questions"] = questions
+
+    # 5. Persist to Supabase and cache in Redis
     update_payload = {
         "questions": questions,
         "current_question": interview["current_question"],
@@ -304,16 +334,18 @@ async def submit_answer(
         "recommendations": interview.get("recommendations", []),
     }
 
-
     try:
+        supabase = get_supabase()
         supabase.table("interviews").update(update_payload).eq("id", body.interviewId).execute()
     except Exception as e:
         logger.warning(f"Supabase update failed: {e}")
         _mock_interviews_db[body.interviewId] = interview
 
-    # Redis active session persistence
-    await set_cache(f"interview:session:{body.interviewId}", interview, ttl=24 * 3600)
-    await delete_cache(f"interviews:{user_id}")
+    try:
+        await set_cache(f"interview:session:{body.interviewId}", interview, ttl=24 * 3600)
+        await delete_cache(f"interviews:{user_id}")
+    except Exception:
+        pass
 
     mapped_interview = _map_interview_from_db(interview)
 
@@ -322,14 +354,18 @@ async def submit_answer(
             "success": True,
             "completed": True,
             "interview": mapped_interview,
+            "feedback": feedback_data,
         }
 
+    next_question_to_return = questions[interview["current_question"]]
     return {
         "success": True,
         "completed": False,
         "currentQuestion": interview["current_question"],
-        "question": questions[interview["current_question"]],
+        "question": next_question_to_return,
         "feedback": feedback_data,
+        "isFollowUp": next_question_to_return.get("is_follow_up", False),
+        "questionSource": next_question_to_return.get("source", "standard"),
     }
 
 

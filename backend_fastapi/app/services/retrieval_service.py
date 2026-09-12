@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import Counter
 from typing import Any, Dict, List, Optional
 from app.config import settings
 from app.core.redis import get_cache, set_cache
@@ -566,31 +567,158 @@ class RetrievalService:
         self,
         role: str,
         skill: Optional[str] = None,
-        top_k: int = 5,
+        skill_gaps: Optional[List[str]] = None,
+        domain: Optional[str] = None,
+        subcategory: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        question_type: Optional[str] = None,
+        resume_topics: Optional[List[str]] = None,
+        excluded_question_ids: Optional[List[str]] = None,
+        excluded_recent_concepts: Optional[List[str]] = None,
+        top_k: int = 15,
     ) -> List[Dict[str, Any]]:
-        """Retrieves verified interview topics and practice questions for role/skill."""
-        cache_key = f"rag:interview:{role}:{skill or 'all'}:{top_k}"
-        query_text = f"Interview questions and answers for {role} {skill or ''}"
+        """
+        Retrieves grounded interview question candidates from Qdrant RAG pool
+        with comprehensive multi-dimensional filtering, skill-gap boosting,
+        deduplication, and resilient in-memory fallback to the 760-question bank.
+        """
+        excluded_ids = set(excluded_question_ids or [])
+        recent_concepts = set(c.lower() for c in (excluded_recent_concepts or []))
+        role_lower = (role or "").lower()
+        gaps_lower = set(g.lower() for g in (skill_gaps or []))
+        resume_lower = set(t.lower() for t in (resume_topics or []))
+        target_diff = (difficulty or "").lower()
 
-        hits = await self._search_with_cache(
-            cache_key=cache_key,
-            query_text=query_text,
-            entity_type=["Interview_Questions", "interview_prep"],
-            top_k=top_k,
-        )
+        # 1. Load canonical candidates from 760-question bank
+        try:
+            from data.interview_question_bank_v2 import get_interview_question_bank
+        except ImportError:
+            try:
+                from fresher_ai_kb.data.interview_question_bank_v2 import get_interview_question_bank
+            except ImportError:
+                get_interview_question_bank = lambda: []
 
-        questions = []
-        for h in hits:
+        all_bank_questions = get_interview_question_bank()
+
+        # 2. Attempt Qdrant semantic search
+        query_text = f"{domain or role} {subcategory or ''} {skill or ''} interview question {difficulty or ''}"
+        cache_key = f"rag:interview_v2:{role}:{domain or 'all'}:{subcategory or 'all'}:{difficulty or 'all'}:{top_k}"
+
+        qdrant_hits = []
+        try:
+            qdrant_hits = await self._search_with_cache(
+                cache_key=cache_key,
+                query_text=query_text,
+                entity_type=["Interview_Questions", "interview_prep"],
+                difficulty=difficulty,
+                top_k=max(25, top_k * 2),
+            )
+        except Exception as e:
+            logger.debug(f"Qdrant interview query notice (fallback available): {e}")
+
+        # Map Qdrant hits to IDs
+        qdrant_id_map = {}
+        for h in qdrant_hits:
             p = h.get("payload", {})
-            q_text = p.get("question") or p.get("topic")
-            if q_text:
-                questions.append({
-                    "question": q_text,
-                    "answer_outline": p.get("answer_outline") or p.get("ideal_answer", ""),
-                    "difficulty": p.get("difficulty", "medium"),
-                    "importance": p.get("importance", "High"),
-                })
-        return questions
+            qid = p.get("question_id") or str(h.get("id"))
+            if qid:
+                qdrant_id_map[qid] = h.get("score", 0.7)
+
+        # 3. Score candidates from the full bank
+        scored_candidates = []
+        for q in all_bank_questions:
+            qid = q.get("question_id", "")
+            if qid in excluded_ids:
+                continue
+
+            q_domain = q.get("domain", "")
+            q_subcat = q.get("subcategory", "")
+            q_diff = q.get("difficulty", "medium").lower()
+            q_type = q.get("question_type", "conceptual").lower()
+            q_roles = [r.lower() for r in q.get("roles", [])]
+            q_concepts = [c.lower() for c in q.get("key_concepts", [])]
+
+            # Base score: Qdrant semantic score if present, else 50.0
+            score = qdrant_id_map.get(qid, 50.0)
+
+            # Domain alignment boost
+            if domain and q_domain.lower() == domain.lower():
+                score += 25.0
+
+            # Role alignment boost
+            if any(r in role_lower or role_lower in r for r in q_roles):
+                score += 20.0
+
+            # Skill gap priority boost (lift questions testing what candidate is missing)
+            gap_overlap = sum(1 for g in gaps_lower if any(g in c or c in g for c in q_concepts))
+            if gap_overlap > 0:
+                score += 15.0 * gap_overlap
+
+            # Resume topic alignment boost
+            resume_overlap = sum(1 for r in resume_lower if any(r in c or c in r for c in q_concepts))
+            if resume_overlap > 0:
+                score += 10.0 * resume_overlap
+
+            # Difficulty alignment
+            if target_diff:
+                if q_diff == target_diff:
+                    score += 10.0
+                elif (target_diff == "hard" and q_diff == "medium") or (target_diff == "easy" and q_diff == "medium"):
+                    score += 5.0
+
+            # Question type alignment
+            if question_type and q_type == question_type.lower():
+                score += 8.0
+
+            # Subcategory alignment
+            if subcategory and q_subcat.lower() == subcategory.lower():
+                score += 15.0
+
+            # Penalty for recently tested concepts (avoid repetitive questions)
+            concept_overlap = sum(1 for c in q_concepts if c in recent_concepts)
+            if concept_overlap > 0:
+                score -= 12.0 * concept_overlap
+
+            scored_candidates.append((score, q))
+
+        # Sort descending by score
+        scored_candidates.sort(key=lambda x: x[0], reverse=True)
+
+        # 4. Diversity selection: ensure varied subcategories
+        selected: List[Dict[str, Any]] = []
+        seen_subcats = Counter()
+
+        for score, q in scored_candidates:
+            sub = q.get("subcategory", "General")
+            if seen_subcats[sub] >= 2 and len(selected) < top_k:
+                continue
+
+            seen_subcats[sub] += 1
+            selected.append({
+                "question_id": q.get("question_id"),
+                "domain": q.get("domain"),
+                "subcategory": q.get("subcategory"),
+                "question_type": q.get("question_type"),
+                "difficulty": q.get("difficulty"),
+                "question": q.get("question"),
+                "roles": q.get("roles", []),
+                "key_concepts": q.get("key_concepts", []),
+                "ideal_answer": q.get("ideal_answer", ""),
+                "key_concepts_to_look_for": q.get("key_concepts_to_look_for", ""),
+                "strong_answer_indicators": q.get("strong_answer_indicators", []),
+                "partial_answer_indicators": q.get("partial_answer_indicators", []),
+                "weak_answer_indicators": q.get("weak_answer_indicators", []),
+                "common_mistakes": q.get("common_mistakes", []),
+                "evaluation_rubric": q.get("evaluation_rubric", {}),
+                "follow_up_topics": q.get("follow_up_topics", []),
+                "related_question_ids": q.get("related_question_ids", []),
+                "retrieval_score": round(score, 2),
+            })
+
+            if len(selected) >= top_k:
+                break
+
+        return selected
 
 
 # Global singleton instance

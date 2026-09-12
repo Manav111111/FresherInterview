@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
 
+    # Support configuration (site-owner configurable)
+    SUPPORT_EMAIL: str = "support@fresherai.com"
+    SUPPORT_PHONE: str = ""  # Explicitly empty: phone support is not currently offered
+    SUPPORT_URL: str = "https://fresherai-silk.vercel.app"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
