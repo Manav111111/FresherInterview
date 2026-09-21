@@ -92,6 +92,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Prepare Safe CI Environment for Docker Validation
+        run: |
+          if [ -f "./backend_fastapi/.env.example" ]; then
+            cp ./backend_fastapi/.env.example ./backend_fastapi/.env
+          else
+            touch ./backend_fastapi/.env
+          fi
+
       - name: Validate Docker Compose Configuration
         run: docker compose config
 

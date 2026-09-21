@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.venv/
+venv/
+__pycache__/
+node_modules/
+dist/
+.pytest_cache/
+backend_fastapi/.venv/
+backend_fastapi/.env
+frontend/node_modules/
+frontend/dist/
+uploads/
+*.log

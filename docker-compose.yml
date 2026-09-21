@@ -18,7 +18,8 @@ services:
       - EMBEDDING_MODEL=gemini-embedding-2
       - EMBEDDING_DIMENSION=768
     env_file:
-      - ./backend_fastapi/.env
+      - path: ./backend_fastapi/.env
+        required: false
     depends_on:
       - redis
       - qdrant
