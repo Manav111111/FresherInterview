@@ -35,11 +35,16 @@ export function LoginModal({ onClose, setUser }) {
         if (response?.user) {
           candidateUser = response.user;
         }
+        if (response?.token) {
+          localStorage.setItem("fresherai_token", response.token);
+        } else {
+          localStorage.setItem("fresherai_token", token);
+        }
       } catch (apiErr) {
         console.warn("Backend auth sync notice (proceeding with verified Firebase identity):", apiErr);
+        localStorage.setItem("fresherai_token", token);
       }
 
-      localStorage.setItem("fresherai_token", token);
       localStorage.setItem("fresherai_demo_user", JSON.stringify(candidateUser));
       setUser(candidateUser);
       onClose();

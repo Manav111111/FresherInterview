@@ -27,33 +27,43 @@ function App() {
   useEffect(() => {
     const getUser = async () => {
       try {
+        const token = localStorage.getItem("fresherai_token");
+        if (!token) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         const data = await getCurrentUser();
         if (data?.user) {
           setUser(data.user);
         } else {
-          const cachedDemo = localStorage.getItem("fresherai_demo_user");
-          if (cachedDemo) {
-            try {
-              setUser(JSON.parse(cachedDemo));
-            } catch (_) {}
-          }
+          // Authentication failed on backend: clear invalid state, do not set ghost user
+          localStorage.removeItem("fresherai_token");
+          localStorage.removeItem("fresherai_demo_user");
+          setUser(null);
         }
       } catch (err) {
-        console.warn("Session check complete:", err);
-        const cachedDemo = localStorage.getItem("fresherai_demo_user");
-        if (cachedDemo) {
-          try {
-            setUser(JSON.parse(cachedDemo));
-          } catch (_) {}
-        }
+        console.warn("Authentication check notice:", err?.message || err);
+        localStorage.removeItem("fresherai_token");
+        localStorage.removeItem("fresherai_demo_user");
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
+
     getUser();
+
+    const handleSessionExpired = () => {
+      setUser(null);
+    };
+    window.addEventListener("fresherai_session_expired", handleSessionExpired);
+    return () => window.removeEventListener("fresherai_session_expired", handleSessionExpired);
   }, []);
 
   useEffect(() => {
+    if (!user) return;
     const fetchResume = async () => {
       try {
         const response = await getResume();
@@ -66,7 +76,7 @@ function App() {
     };
 
     fetchResume();
-  }, [dispatch]);
+  }, [user, dispatch]);
 
   if (loading) {
     return (

@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import RoadmapResult from "../components/roadmap/RoadmapResult";
 import { generateRoadmap, getAllRoadmaps, getRoadmapById as apiGetRoadmapById } from "../api/roadmap.api";
 import { useCoins } from "../api/user.api";
+import { LoginModal } from "../components/LoginModel";
 
 const PACKAGE_OPTIONS = ["10 LPA", "15 LPA", "20 LPA", "30 LPA", "40 LPA", "50+ LPA"];
 
@@ -120,6 +121,59 @@ function Navbar({ user, onHistoryClick }) {
   );
 }
 
+function classifyApiError(err) {
+  if (!err?.response) {
+    return {
+      type: "network",
+      message: "Connection error: Unable to reach the backend server. Please check your network.",
+      isAuth: false,
+    };
+  }
+  const status = err.response.status;
+  const detail = err.response.data?.detail;
+
+  if (status === 401) {
+    return {
+      type: "auth",
+      message: "Your session has expired. Please sign in again to continue.",
+      isAuth: true,
+    };
+  }
+  if (status === 403) {
+    return {
+      type: "forbidden",
+      message: detail || "You do not have permission to perform this action.",
+      isAuth: false,
+    };
+  }
+  if (status === 400) {
+    return {
+      type: "validation",
+      message: detail || "Invalid roadmap request parameters.",
+      isAuth: false,
+    };
+  }
+  if (status === 429) {
+    return {
+      type: "rate_limit",
+      message: "Rate limit reached. Please wait a moment before generating another roadmap.",
+      isAuth: false,
+    };
+  }
+  if (status >= 500) {
+    return {
+      type: "server",
+      message: detail || "The AI Roadmap service encountered a temporary server error. Please try again.",
+      isAuth: false,
+    };
+  }
+  return {
+    type: "unknown",
+    message: detail || err.message || "An unexpected error occurred. Please try again.",
+    isAuth: false,
+  };
+}
+
 // ─── Main Roadmap Page ────────────────────────────────────────────────────────
 export default function Roadmap({ user, setUser }) {
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -132,6 +186,8 @@ export default function Roadmap({ user, setUser }) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory]         = useState([]);
   const [error, setError]             = useState("");
+  const [errorObj, setErrorObj]       = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const { resume } = useSelector((state) => state.resume);
   const navigate = useNavigate();
@@ -170,6 +226,7 @@ export default function Roadmap({ user, setUser }) {
     if (!selectedRole || loading) return;
     setLoading(true);
     setError("");
+    setErrorObj(null);
     try {
       const coinResponse = await useCoins({ coins: 20, action: "roadmap" });
       if (coinResponse?.interviewCoin !== undefined) {
@@ -186,8 +243,10 @@ export default function Roadmap({ user, setUser }) {
         fetchRoadmaps();
       }
     } catch (err) {
-      console.error(err);
-      setError(err?.response?.data?.detail || err?.message || "Failed to generate roadmap. Please check your coin balance.");
+      console.error("Generate roadmap error:", err);
+      const classified = classifyApiError(err);
+      setErrorObj(classified);
+      setError(classified.message);
     } finally {
       setLoading(false);
     }
@@ -407,9 +466,18 @@ export default function Roadmap({ user, setUser }) {
               </div>
 
               {error && (
-                <p className="text-xs text-rose-500 mt-2 font-medium">
-                  ⚠️ {error}
-                </p>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-2xl bg-rose-50/90 border border-rose-200 mt-3 text-xs text-rose-700 gap-2">
+                  <span className="font-medium">⚠️ {error}</span>
+                  {errorObj?.isAuth && (
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginModal(true)}
+                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition shrink-0 cursor-pointer shadow-xs"
+                    >
+                      Sign In Again
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -481,6 +549,14 @@ export default function Roadmap({ user, setUser }) {
           </div>
         )}
       </AnimatePresence>
+
+      {/* ── Login Modal Dialog ── */}
+      {showLoginModal && (
+        <LoginModal
+          onClose={() => setShowLoginModal(false)}
+          setUser={setUser}
+        />
+      )}
     </div>
   );
 }

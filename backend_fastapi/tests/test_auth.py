@@ -60,5 +60,96 @@ def test_auth_and_coins_flow():
     print("\nALL PHASE 2 AUTH & COINS TESTS PASSED!")
 
 
+def test_dual_authentication_regression():
+    from unittest.mock import patch
+
+    # 1. Missing token -> 401
+    # Create isolated client without cookies
+    fresh_client = TestClient(app)
+    res_missing = fresh_client.get("/api/me")
+    assert res_missing.status_code == 401
+    assert "Unauthorized" in res_missing.text or "Session Expired" in res_missing.text
+
+    # 2. Malformed token -> 401
+    res_malformed = fresh_client.get("/api/me", headers={"Authorization": "Bearer invalid_malformed_token_xyz"})
+    assert res_malformed.status_code == 401
+    assert res_malformed.json()["detail"] == "Session Expired or Invalid"
+
+    # 3. Valid backend session token -> 200
+    login_resp = fresh_client.post("/api/auth/login", json={"token": "test_google_oauth_token"})
+    assert login_resp.status_code == 200
+    session_token = login_resp.json()["token"]
+    res_session = fresh_client.get("/api/me", headers={"Authorization": f"Bearer {session_token}"})
+    assert res_session.status_code == 200
+    assert res_session.json()["success"] is True
+
+    # 4. Valid Firebase ID token without existing Redis session (stateless path)
+    with patch("app.core.security.verify_firebase_token") as mock_verify:
+        mock_verify.return_value = {
+            "uid": "verified_firebase_uid_99",
+            "email": "candidate99@fresherai.com",
+            "name": "Stateless Candidate",
+        }
+        res_firebase = fresh_client.get("/api/me", headers={"Authorization": "Bearer simulated_valid_firebase_jwt"})
+        assert res_firebase.status_code == 200
+        user_body = res_firebase.json()["user"]
+        assert user_body["email"] == "candidate99@fresherai.com"
+        assert user_body["name"] == "Stateless Candidate"
+
+    # 5. Invalid / expired Firebase token -> 401
+    with patch("app.core.security.verify_firebase_token") as mock_verify:
+        mock_verify.side_effect = ValueError("Firebase ID token has expired")
+        res_expired = fresh_client.get("/api/me", headers={"Authorization": "Bearer simulated_expired_jwt"})
+        assert res_expired.status_code == 401
+        assert res_expired.json()["detail"] == "Session Expired or Invalid"
+
+    # 6. Redis session cache unavailable + valid Firebase ID token -> succeeds statelessly
+    with patch("app.core.security.get_cache", return_value=None):
+        with patch("app.core.security.verify_firebase_token") as mock_verify:
+            mock_verify.return_value = {
+                "uid": "redis_offline_uid_42",
+                "email": "offline_candidate@fresherai.com",
+                "name": "Offline Resilient User",
+            }
+            res_resilient = fresh_client.get("/api/me", headers={"Authorization": "Bearer resilient_jwt_token"})
+            assert res_resilient.status_code == 200
+            assert res_resilient.json()["user"]["email"] == "offline_candidate@fresherai.com"
+
+    # 7. Invalid Firebase token does not activate demo user
+    with patch("app.core.security.verify_firebase_token") as mock_verify:
+        mock_verify.side_effect = ValueError("Token verification failed")
+        res_fail = fresh_client.get("/api/me", headers={"Authorization": "Bearer completely_bogus_token"})
+        assert res_fail.status_code == 401
+        assert "Fresher Candidate" not in res_fail.text
+
+    # 8. Valid Bearer token allows protected roadmap generation
+    with patch("app.ai.provider_router.ai_router.execute") as mock_ai:
+        class FakeSuccess:
+            success = True
+            parsed_json = {
+                "role": "DevOps Engineer",
+                "target_salary": "18 LPA",
+                "summary": {"difficulty": "Intermediate", "duration_weeks": 6, "personalized": False},
+                "skills": {"strong": [], "partial": [], "missing": ["Kubernetes"], "priority": ["Kubernetes"]},
+                "tools": ["Docker"],
+                "youtube_resources": [],
+                "official_docs": [],
+                "career_resources": [],
+                "projects": [],
+                "modules": [{"title": "Container Orchestration", "difficulty": "Intermediate", "topics": ["Kubernetes"]}],
+            }
+            error = None
+        mock_ai.return_value = FakeSuccess()
+
+        roadmap_resp = fresh_client.post(
+            "/api/roadmap/generate",
+            json={"role": "DevOps Engineer", "targetPackage": "18 LPA", "useResume": False},
+            headers={"Authorization": f"Bearer {session_token}"},
+        )
+        assert roadmap_resp.status_code == 201
+        assert roadmap_resp.json()["success"] is True
+
+
 if __name__ == "__main__":
     test_auth_and_coins_flow()
+    test_dual_authentication_regression()

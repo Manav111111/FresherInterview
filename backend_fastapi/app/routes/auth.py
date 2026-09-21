@@ -88,6 +88,12 @@ async def login(request: Request, body: LoginRequest, response: Response):
             json.dumps(session_payload),
             ttl=60 * 60 * 24 * 7,  # 7 days
         )
+        if body.token:
+            await set_cache(
+                f"session:{body.token}",
+                json.dumps(session_payload),
+                ttl=60 * 60 * 24 * 7,
+            )
 
         # 3. Set Cookie with protocol detection
         is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
