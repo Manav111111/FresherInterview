@@ -68,5 +68,59 @@ def test_roadmap_flow():
     print("\nALL PHASE 5 ROADMAP TESTS PASSED!")
 
 
+def test_roadmap_list_and_string_skill_regression():
+    """
+    Regression test verifying that:
+    1. resume.skills as a list of strings works without type errors.
+    2. resume.missingSkills as a list of strings works without type errors.
+    3. resume.skills as a comma-separated string remains compatible.
+    4. Deterministic fallback with list topics_covered does not raise 'list' object has no attribute 'split'.
+    """
+    from unittest.mock import patch
+
+    # 1. Test list inputs under simulated AI provider failure (deterministic fallback)
+    with patch("app.ai.provider_router.ai_router.execute") as mock_ai:
+        class ProviderFailure:
+            success = False
+            parsed_json = None
+            error = "Simulated CI missing keys"
+
+        mock_ai.return_value = ProviderFailure()
+
+        list_payload = {
+            "role": "DevOps Engineer",
+            "targetPackage": "18 LPA",
+            "useResume": True,
+            "resume": {
+                "skills": ["Linux", "Docker", "Python", "CI/CD"],
+                "missingSkills": ["Kubernetes", "Terraform", "Prometheus"],
+                "summary": "Junior DevOps Engineer"
+            }
+        }
+        res_list = client.post("/api/roadmap/generate", json=list_payload)
+        assert res_list.status_code == 201, f"List payload failed: {res_list.text}"
+        data_list = res_list.json()["data"]
+        assert len(data_list["modules"]) >= 3
+        assert "skills" in data_list
+        assert any("Kubernetes" in str(m.get("title", "")) or "Kubernetes" in str(m.get("topics", "")) for m in data_list["modules"])
+
+        # 2. Test comma-separated string input compatibility
+        str_payload = {
+            "role": "DevOps Engineer",
+            "targetPackage": "18 LPA",
+            "useResume": True,
+            "resume": {
+                "skills": "Linux, Docker, Python, CI/CD",
+                "missingSkills": "Kubernetes, Terraform, Prometheus",
+                "summary": "Junior DevOps Engineer"
+            }
+        }
+        res_str = client.post("/api/roadmap/generate", json=str_payload)
+        assert res_str.status_code == 201, f"String payload failed: {res_str.text}"
+        data_str = res_str.json()["data"]
+        assert len(data_str["modules"]) >= 3
+
+
 if __name__ == "__main__":
     test_roadmap_flow()
+    test_roadmap_list_and_string_skill_regression()

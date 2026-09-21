@@ -161,6 +161,38 @@ async def _build_rag_context(
 
 
 
+def _normalize_string_list(val: Any, delimiter: str = ",") -> List[str]:
+    """
+    Safely normalizes input that may be a list of strings, a delimited string,
+    or None, returning a clean List[str] with empty items removed.
+    Preserves list semantics without calling .split() on list objects.
+    """
+    if not val:
+        return []
+    if isinstance(val, (list, tuple, set)):
+        result = []
+        for item in val:
+            if isinstance(item, str):
+                if delimiter and delimiter in item:
+                    result.extend([t.strip() for t in item.split(delimiter) if t.strip()])
+                elif item.strip():
+                    result.append(item.strip())
+            elif isinstance(item, dict):
+                name = item.get("name") or item.get("title") or item.get("skill") or ""
+                if name and isinstance(name, str) and name.strip():
+                    result.append(name.strip())
+            elif item is not None and not isinstance(item, (dict, list, tuple, set)):
+                s = str(item).strip()
+                if s:
+                    result.append(s)
+        return result
+    if isinstance(val, str):
+        if delimiter and delimiter in val:
+            return [t.strip() for t in val.split(delimiter) if t.strip()]
+        return [val.strip()] if val.strip() else []
+    return [str(val).strip()] if str(val).strip() else []
+
+
 def _build_deterministic_modules(
     role: str,
     rag_data: Dict[str, Any],
@@ -181,7 +213,7 @@ def _build_deterministic_modules(
             week_num = w.get("week_number", idx + 1)
             phase = w.get("phase_name", "Core Skills")
             topics_raw = w.get("topics_covered", "")
-            topics = [t.strip() for t in topics_raw.split(",") if t.strip()][:4]
+            topics = _normalize_string_list(topics_raw, delimiter=",")[:4]
             if not topics:
                 topics = [f"{phase} Fundamentals", "Implementation", "Testing & Debugging"]
 
@@ -218,7 +250,7 @@ def _build_deterministic_modules(
             if diff not in ("Beginner", "Easy", "Intermediate", "Advanced"):
                 diff = "Intermediate"
 
-            skills_list = [t for t in topics if len(t.split()) <= 2][:3] or [phase]
+            skills_list = [t for t in topics if isinstance(t, str) and len(t.split()) <= 2][:3] or [phase]
 
             modules.append({
                 "week": week_num,
@@ -269,10 +301,11 @@ def _build_deterministic_modules(
             doc = official_docs[idx % len(official_docs)] if official_docs else {"title": "Official Docs", "url": "https://developer.mozilla.org", "logo_key": "generic"}
             proj_name = projects[idx % len(projects)]["title"] if projects else f"{step_name} Implementation"
 
+            first_word = step_name.split()[0] if isinstance(step_name, str) and step_name.split() else (str(step_name) if step_name else "Core")
             modules.append({
                 "week": week_num,
                 "title": f"Week {week_num}: {step_name}",
-                "skills": [step_name.split()[0], "Engineering Best Practices"],
+                "skills": [first_word, "Engineering Best Practices"],
                 "topics": [f"{step_name} Foundations", "Hands-on Implementation", "System Optimization", "Testing"],
                 "resources": [
                     {"title": yt.get("title", "Video Guide"), "url": yt.get("url"), "type": "youtube", "logo_key": yt.get("logo_key", "youtube")},
@@ -393,8 +426,19 @@ async def generate_career_roadmap(
     is_personalized = bool(use_resume and resume)
 
     if is_personalized:
-        candidate_skills = resume.get("skills", [])
+        raw_skills = resume.get("skills", [])
+        candidate_skills = skill_gap_engine.normalize_skills_list(raw_skills)
         gap_data = skill_gap_engine.calculate_skill_gap(clean_role, candidate_skills)
+
+        # Merge any explicit missing skills provided in resume payload
+        raw_missing = resume.get("missingSkills") or resume.get("missing_skills") or []
+        if raw_missing:
+            explicit_missing = skill_gap_engine.normalize_skills_list(raw_missing)
+            curr_missing = gap_data.get("skills", {}).get("missing", [])
+            for em in explicit_missing:
+                if em not in curr_missing:
+                    curr_missing.append(em)
+
         strong_names = gap_data.get("skills", {}).get("strong", [])
         partial_names = gap_data.get("skills", {}).get("partial", [])
         missing_names = gap_data.get("skills", {}).get("missing", [])

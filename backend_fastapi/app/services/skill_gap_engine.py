@@ -148,13 +148,28 @@ class SkillGapEngine:
 
         return cleaned
 
-    def normalize_skills_list(self, skills: List[str]) -> List[str]:
-        """Normalizes a list of candidate skill strings and removes duplicates."""
+    def normalize_skills_list(self, skills: Any) -> List[str]:
+        """Normalizes candidate skills whether passed as a list of strings, delimited string, or list of dicts."""
+        if not skills:
+            return []
+        if isinstance(skills, str):
+            import re
+            skills = [s.strip() for s in re.split(r"[,;\n]", skills) if s.strip()]
+        elif not isinstance(skills, (list, tuple, set)):
+            skills = [str(skills)]
+
         normalized_set = set()
         for s in skills:
-            norm = self.normalize_skill_name(s)
-            if norm:
-                normalized_set.add(norm)
+            if isinstance(s, dict):
+                s = s.get("name") or s.get("skill") or s.get("title") or ""
+            if isinstance(s, str) and s.strip():
+                norm = self.normalize_skill_name(s)
+                if norm:
+                    normalized_set.add(norm)
+            elif s is not None and not isinstance(s, (dict, list, tuple, set)):
+                norm = self.normalize_skill_name(str(s))
+                if norm:
+                    normalized_set.add(norm)
         return sorted(list(normalized_set))
 
     def calculate_skill_gap(
