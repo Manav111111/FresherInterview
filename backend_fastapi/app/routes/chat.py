@@ -24,6 +24,8 @@ class ChatMessageResponse(BaseModel):
     suggested_actions: Optional[List[str]] = Field(default_factory=list, description="Contextual action suggestions")
     provider: Optional[str] = "groq"
     model: Optional[str] = "llama-3.3-70b-versatile"
+    request_id: Optional[str] = None
+    latency_ms: Optional[float] = None
 
 
 @chat_router.post("/message", response_model=ChatMessageResponse)
@@ -68,6 +70,8 @@ async def handle_chat_message(
         user_context=user_context,
     )
 
+    from app.core.telemetry import get_current_request_id
+
     return ChatMessageResponse(
         success=res.get("success", True),
         reply=res.get("reply", "I'm ready to assist you. Please ask your question!"),
@@ -76,4 +80,6 @@ async def handle_chat_message(
         suggested_actions=res.get("suggested_actions", []),
         provider=res.get("provider", "groq"),
         model=res.get("model", "llama-3.3-70b-versatile"),
+        request_id=res.get("request_id") or get_current_request_id(),
+        latency_ms=res.get("latency_ms"),
     )

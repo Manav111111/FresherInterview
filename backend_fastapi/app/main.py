@@ -61,6 +61,28 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def telemetry_middleware(request, call_next):
+    """
+    Request-scoped telemetry middleware.
+    Extracts or generates X-Request-ID, sets contextvars,
+    times request execution using time.perf_counter(), and appends correlation headers.
+    """
+    import time
+    from app.core.telemetry import set_current_request_id
+
+    req_id = request.headers.get("X-Request-ID") or request.headers.get("x-request-id")
+    current_rid = set_current_request_id(req_id)
+    start_time = time.perf_counter()
+
+    response = await call_next(request)
+
+    duration_ms = round((time.perf_counter() - start_time) * 1000.0, 2)
+    response.headers["X-Request-ID"] = current_rid
+    response.headers["X-Response-Time-MS"] = str(duration_ms)
+    return response
+
+
 
 @app.get("/", tags=["Health"])
 async def root():

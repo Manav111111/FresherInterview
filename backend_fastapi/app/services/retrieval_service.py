@@ -7,6 +7,7 @@ from app.core.redis import get_cache, set_cache
 from app.services.embedding_service import embedding_service
 from app.services.qdrant_service import qdrant_service
 from app.services.kb_loader import kb_loader
+from app.services.reranker_service import reranker_service
 
 logger = logging.getLogger("fresherai.retrieval")
 
@@ -33,31 +34,63 @@ class RetrievalService:
         top_k: int = 5,
         score_threshold: float = 0.0,
     ) -> List[Dict[str, Any]]:
+        import time
+        from app.core.telemetry import telemetry
+
         # 1. Check Redis cache
         cached = await get_cache(cache_key)
         if cached:
             try:
-                return json.loads(cached)
+                parsed = json.loads(cached)
+                telemetry.log_retrieval_event(
+                    operation="search_cached",
+                    latency_ms=0.5,
+                    top_k=top_k,
+                    result_count=len(parsed),
+                    cached=True,
+                )
+                return parsed
             except Exception:
                 pass
 
         # 2. Compute query vector
         query_vec = await self._embedding.get_embedding(query_text)
 
-        # 3. Query Qdrant
-        results = self._qdrant.search(
+        # 3. Query Qdrant (retrieve broader candidate pool for reranking if enabled)
+        qdrant_start = time.perf_counter()
+        candidate_count = max(top_k * 3, settings.RERANK_TOP_N) if settings.RERANKING_ENABLED else top_k
+        raw_results = self._qdrant.search(
             query_vector=query_vec,
-            top_k=top_k,
+            top_k=candidate_count,
             entity_type=entity_type,
             role_id=role_id,
             skill_id=skill_id,
             difficulty=difficulty,
             score_threshold=score_threshold,
         )
+        qdrant_latency = (time.perf_counter() - qdrant_start) * 1000.0
+        telemetry.log_retrieval_event(
+            operation="qdrant_vector_search",
+            latency_ms=qdrant_latency,
+            top_k=candidate_count,
+            result_count=len(raw_results),
+            cached=False,
+        )
 
-        # 4. Cache in Redis
+        # 4. Two-Stage Reranking
+        if settings.RERANKING_ENABLED and raw_results:
+            results = reranker_service.rerank(
+                query=query_text,
+                candidates=raw_results,
+                top_k=top_k,
+                operation="rag_retrieval_rerank",
+            )
+        else:
+            results = raw_results[:top_k]
+
+        # 5. Cache in Redis
         try:
-            await set_cache(cache_key, json.dumps(results), ex=settings.RAG_CACHE_TTL)
+            await set_cache(cache_key, json.dumps(results), ttl=settings.RAG_CACHE_TTL)
         except Exception as cache_err:
             logger.debug(f"Redis cache save notice: {cache_err}")
 
@@ -320,17 +353,70 @@ class RetrievalService:
         # Sort by score descending; stable sort preserves registry ordering for ties
         scored.sort(key=lambda x: x[0], reverse=True)
 
-        # ── 3. Format output (channel-only, no playlists) ────────────────────
+        # ── 3. Format output (both flat fields for frontend and channel/playlists for test & deep consumers) ──
+        try:
+            from data.youtube_channels import get_playlists
+        except ImportError:
+            try:
+                from fresher_ai_kb.data.youtube_channels import get_playlists
+            except ImportError:
+                get_playlists = lambda: []
+
+        all_playlists = get_playlists()
         result: List[Dict[str, Any]] = []
+
         for _, ch in scored[:top_k_creators]:
+            ch_id = ch["channel_id"]
+
+            # Filter verified playlists for this channel
+            ch_pls = [
+                p for p in all_playlists
+                if p.get("channel_id") == ch_id and p.get("verified") is True
+            ]
+
+            # Score playlists for missing skills if provided
+            if missing:
+                def _score_pl(pl):
+                    text = f"{pl.get('skill_area', '')} {pl.get('playlist_name', '')} {' '.join(pl.get('tags', []))}".lower()
+                    score = 0
+                    for m in missing:
+                        if m in text:
+                            score += 10
+                    # Prioritize advanced/RAG/LangGraph if requested
+                    return (score, pl.get("priority", 0))
+                ch_pls.sort(key=_score_pl, reverse=True)
+            else:
+                ch_pls.sort(key=lambda p: p.get("priority", 0), reverse=True)
+
+            formatted_pls = []
+            for p in ch_pls[:max_playlists_per_creator]:
+                formatted_pls.append({
+                    "playlist_id": p.get("playlist_id", ""),
+                    "title": p.get("playlist_name", ""),
+                    "url": p.get("url", ""),
+                    "verified": p.get("verified", True),
+                    "video_count": p.get("video_count", ""),
+                    "skill_area": p.get("skill_area", ""),
+                })
+
             result.append({
-                "channel_id":      ch["channel_id"],
+                # Flat properties consumed by new frontend components
+                "channel_id":      ch_id,
                 "name":            ch["name"],
                 "channel_url":     ch["channel_url"],
                 "avatar_initials": ch["avatar_initials"],
                 "avatar_color":    ch["avatar_color"],
                 "topics":          ch["topics"][:5],
                 "best_for":        ch["best_for"],
+                # Nested channel and playlists structure for backward compatibility & rich consumers
+                "channel": {
+                    "id":          ch_id,
+                    "name":        ch["name"],
+                    "url":         ch["channel_url"],
+                    "tags":        ch.get("topics", []),
+                    "best_for":    ch.get("best_for", ""),
+                },
+                "playlists": formatted_pls,
             })
 
         return result

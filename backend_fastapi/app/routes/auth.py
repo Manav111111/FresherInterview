@@ -86,7 +86,7 @@ async def login(request: Request, body: LoginRequest, response: Response):
         await set_cache(
             f"session:{session_id}",
             json.dumps(session_payload),
-            ex=60 * 60 * 24 * 7,  # 7 days
+            ttl=60 * 60 * 24 * 7,  # 7 days
         )
 
         # 3. Set Cookie with protocol detection
@@ -137,7 +137,7 @@ async def demo_login(request: Request, response: Response):
     await set_cache(
         f"session:{session_id}",
         json.dumps(demo_user),
-        ex=60 * 60 * 24 * 7,
+        ttl=60 * 60 * 24 * 7,
     )
 
     is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
@@ -226,7 +226,7 @@ async def use_interview_coins(
         await set_cache(
             f"session:{session}",
             json.dumps(current_user),
-            ex=60 * 60 * 24 * 7,
+            ttl=60 * 60 * 24 * 7,
         )
 
     return {
@@ -261,7 +261,7 @@ async def add_coins(
         await set_cache(
             f"session:{session}",
             json.dumps(current_user),
-            ex=60 * 60 * 24 * 7,
+            ttl=60 * 60 * 24 * 7,
         )
 
     return {

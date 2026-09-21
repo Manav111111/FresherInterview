@@ -1,0 +1,805 @@
+[
+  {
+    "id": "canon_01",
+    "type": "canonical",
+    "domain": "AI Engineering",
+    "query": "A production LLM endpoint is too slow. What would you measure first, and which changes could reduce latency without blindly choosing a smaller model?",
+    "relevant_ids": ["ai-enginee-001"],
+    "category": "LLM Fundamentals"
+  },
+  {
+    "id": "canon_02",
+    "type": "canonical",
+    "domain": "AI Engineering",
+    "query": "Semantic search returns keyword-related documents but misses the user intent. How would you debug the embedding pipeline?",
+    "relevant_ids": ["ai-enginee-002"],
+    "category": "Embeddings"
+  },
+  {
+    "id": "canon_03",
+    "type": "canonical",
+    "domain": "AI Engineering",
+    "query": "Design a RAG pipeline for an interview-preparation platform from ingestion through retrieval, reranking, generation, and evaluation.",
+    "relevant_ids": ["ai-enginee-003"],
+    "category": "RAG"
+  },
+  {
+    "id": "canon_04",
+    "type": "canonical",
+    "domain": "AI Engineering",
+    "query": "When is a deterministic workflow better than an autonomous agent? Give an example from an AI product.",
+    "relevant_ids": ["ai-enginee-004"],
+    "category": "Agents"
+  },
+  {
+    "id": "canon_05",
+    "type": "canonical",
+    "domain": "AI Engineering",
+    "query": "Design the LangGraph state and routing for an adaptive mock interview.",
+    "relevant_ids": ["ai-enginee-005"],
+    "category": "LangGraph"
+  },
+  {
+    "id": "canon_06",
+    "type": "canonical",
+    "domain": "Backend",
+    "query": "Design a REST endpoint for creating and retrieving an AI interview session.",
+    "relevant_ids": ["backend-001"],
+    "category": "API Design"
+  },
+  {
+    "id": "canon_07",
+    "type": "canonical",
+    "domain": "Backend",
+    "query": "When do async FastAPI endpoints improve throughput, and when do they not?",
+    "relevant_ids": ["backend-002"],
+    "category": "FastAPI"
+  },
+  {
+    "id": "canon_08",
+    "type": "canonical",
+    "domain": "Backend",
+    "query": "Explain the Node.js event loop using a database request.",
+    "relevant_ids": ["backend-003"],
+    "category": "Node"
+  },
+  {
+    "id": "canon_09",
+    "type": "canonical",
+    "domain": "Backend",
+    "query": "How would you add Redis caching to an expensive database query?",
+    "relevant_ids": ["backend-004"],
+    "category": "Redis"
+  },
+  {
+    "id": "canon_10",
+    "type": "canonical",
+    "domain": "Backend",
+    "query": "Traffic grows 10x. What would you inspect before simply adding servers?",
+    "relevant_ids": ["backend-005"],
+    "category": "Scalability"
+  },
+  {
+    "id": "canon_11",
+    "type": "canonical",
+    "domain": "Frontend",
+    "query": "Explain closures with a practical frontend example.",
+    "relevant_ids": ["frontend-001"],
+    "category": "JavaScript"
+  },
+  {
+    "id": "canon_12",
+    "type": "canonical",
+    "domain": "Frontend",
+    "query": "How does React decide what to re-render after state changes?",
+    "relevant_ids": ["frontend-002"],
+    "category": "React"
+  },
+  {
+    "id": "canon_13",
+    "type": "canonical",
+    "domain": "Frontend",
+    "query": "What happens from clicking a URL to the browser rendering a page?",
+    "relevant_ids": ["frontend-003"],
+    "category": "Browser"
+  },
+  {
+    "id": "canon_14",
+    "type": "canonical",
+    "domain": "Frontend",
+    "query": "When would you use unknown instead of any?",
+    "relevant_ids": ["frontend-004"],
+    "category": "TypeScript"
+  },
+  {
+    "id": "canon_15",
+    "type": "canonical",
+    "domain": "Frontend",
+    "query": "How would you organize a growing React application by feature?",
+    "relevant_ids": ["frontend-005"],
+    "category": "Architecture"
+  },
+  {
+    "id": "canon_16",
+    "type": "canonical",
+    "domain": "DevOps/Cloud",
+    "query": "A production process uses 100% CPU. Which commands and signals would you use to investigate?",
+    "relevant_ids": ["devops-clo-001"],
+    "category": "Linux"
+  },
+  {
+    "id": "canon_17",
+    "type": "canonical",
+    "domain": "DevOps/Cloud",
+    "query": "Explain image versus container.",
+    "relevant_ids": ["devops-clo-002"],
+    "category": "Docker"
+  },
+  {
+    "id": "canon_18",
+    "type": "canonical",
+    "domain": "DevOps/Cloud",
+    "query": "What checks should run in CI before a pull request merges?",
+    "relevant_ids": ["devops-clo-003"],
+    "category": "CI/CD"
+  },
+  {
+    "id": "canon_19",
+    "type": "canonical",
+    "domain": "DevOps/Cloud",
+    "query": "When would you choose a VM, container platform, or serverless service?",
+    "relevant_ids": ["devops-clo-004"],
+    "category": "Cloud"
+  },
+  {
+    "id": "canon_20",
+    "type": "canonical",
+    "domain": "DevOps/Cloud",
+    "query": "Explain Pod, Deployment, and Service.",
+    "relevant_ids": ["devops-clo-005"],
+    "category": "Kubernetes"
+  },
+  {
+    "id": "canon_21",
+    "type": "canonical",
+    "domain": "ML/Data Science",
+    "query": "How would you decide whether to impute, remove, or preserve missing values?",
+    "relevant_ids": ["ml-data-sc-001"],
+    "category": "Python/Data"
+  },
+  {
+    "id": "canon_22",
+    "type": "canonical",
+    "domain": "ML/Data Science",
+    "query": "Explain mean, median, and mode and when each is useful.",
+    "relevant_ids": ["ml-data-sc-002"],
+    "category": "Statistics"
+  },
+  {
+    "id": "canon_23",
+    "type": "canonical",
+    "domain": "ML/Data Science",
+    "query": "Explain overfitting and three ways to reduce it.",
+    "relevant_ids": ["ml-data-sc-003"],
+    "category": "ML Fundamentals"
+  },
+  {
+    "id": "canon_24",
+    "type": "canonical",
+    "domain": "ML/Data Science",
+    "query": "Compare logistic regression and decision trees for binary classification.",
+    "relevant_ids": ["ml-data-sc-004"],
+    "category": "Models"
+  },
+  {
+    "id": "canon_25",
+    "type": "canonical",
+    "domain": "ML/Data Science",
+    "query": "How would you choose metrics for fraud detection?",
+    "relevant_ids": ["ml-data-sc-005"],
+    "category": "Evaluation"
+  },
+  {
+    "id": "canon_26",
+    "type": "canonical",
+    "domain": "System Design",
+    "query": "Design a URL shortener and explain requirements, APIs, storage, and scaling.",
+    "relevant_ids": ["system-des-001"],
+    "category": "Fundamentals"
+  },
+  {
+    "id": "canon_27",
+    "type": "canonical",
+    "domain": "System Design",
+    "query": "Design an appointment-booking system that prevents double booking.",
+    "relevant_ids": ["system-des-002"],
+    "category": "Backend Systems"
+  },
+  {
+    "id": "canon_28",
+    "type": "canonical",
+    "domain": "System Design",
+    "query": "Design a RAG chatbot for one million documents.",
+    "relevant_ids": ["system-des-003"],
+    "category": "AI Systems"
+  },
+  {
+    "id": "canon_29",
+    "type": "canonical",
+    "domain": "System Design",
+    "query": "Your service grows from 1,000 to 1 million daily users. What bottlenecks do you expect?",
+    "relevant_ids": ["system-des-004"],
+    "category": "Scalability"
+  },
+  {
+    "id": "canon_30",
+    "type": "canonical",
+    "domain": "System Design",
+    "query": "How would you design for a database outage?",
+    "relevant_ids": ["system-des-005"],
+    "category": "Reliability"
+  },
+  {
+    "id": "canon_31",
+    "type": "canonical",
+    "domain": "DSA",
+    "query": "Find two values in an array whose sum equals a target. Explain the hash-map trade-off.",
+    "relevant_ids": ["dsa-001"],
+    "category": "Arrays"
+  },
+  {
+    "id": "canon_32",
+    "type": "canonical",
+    "domain": "DSA",
+    "query": "Find the longest substring without repeating characters.",
+    "relevant_ids": ["dsa-002"],
+    "category": "Strings"
+  },
+  {
+    "id": "canon_33",
+    "type": "canonical",
+    "domain": "DSA",
+    "query": "Find three values whose sum is closest to a target.",
+    "relevant_ids": ["dsa-003"],
+    "category": "Two Pointers"
+  },
+  {
+    "id": "canon_34",
+    "type": "canonical",
+    "domain": "DSA",
+    "query": "Find the longest subarray or substring satisfying a fixed-window constraint.",
+    "relevant_ids": ["dsa-004"],
+    "category": "Sliding Window"
+  },
+  {
+    "id": "canon_35",
+    "type": "canonical",
+    "domain": "DSA",
+    "query": "Find the first and last occurrence of a target in a sorted array with duplicates.",
+    "relevant_ids": ["dsa-005"],
+    "category": "Binary Search"
+  },
+
+  {
+    "id": "para_01",
+    "type": "paraphrase",
+    "domain": "AI Engineering",
+    "query": "Our model API is experiencing high time to first token. How can we speed it up without downgrading model size?",
+    "relevant_ids": ["ai-enginee-001"],
+    "category": "LLM Fundamentals"
+  },
+  {
+    "id": "para_02",
+    "type": "paraphrase",
+    "domain": "AI Engineering",
+    "query": "Vector similarity search brings back wrong chunks that only share keywords. How do I fix the embedding quality?",
+    "relevant_ids": ["ai-enginee-002"],
+    "category": "Embeddings"
+  },
+  {
+    "id": "para_03",
+    "type": "paraphrase",
+    "domain": "AI Engineering",
+    "query": "How do you construct an end to end retrieval augmented generation architecture for interview prep?",
+    "relevant_ids": ["ai-enginee-003"],
+    "category": "RAG"
+  },
+  {
+    "id": "para_04",
+    "type": "paraphrase",
+    "domain": "AI Engineering",
+    "query": "Why use fixed state machines or sequential graphs rather than unconstrained ReAct loops in production AI apps?",
+    "relevant_ids": ["ai-enginee-004"],
+    "category": "Agents"
+  },
+  {
+    "id": "para_05",
+    "type": "paraphrase",
+    "domain": "AI Engineering",
+    "query": "How to structure LangGraph nodes and edge conditions for conversational interview turn taking?",
+    "relevant_ids": ["ai-enginee-005"],
+    "category": "LangGraph"
+  },
+  {
+    "id": "para_06",
+    "type": "paraphrase",
+    "domain": "Backend",
+    "query": "What HTTP routes, payloads, and status codes should be used for starting and fetching interview mock sessions?",
+    "relevant_ids": ["backend-001"],
+    "category": "API Design"
+  },
+  {
+    "id": "para_07",
+    "type": "paraphrase",
+    "domain": "Backend",
+    "query": "In which scenarios does using async def in FastAPI degrade latency or fail to provide concurrency gains?",
+    "relevant_ids": ["backend-002"],
+    "category": "FastAPI"
+  },
+  {
+    "id": "para_08",
+    "type": "paraphrase",
+    "domain": "Backend",
+    "query": "Walk me through how Node coordinates libuv worker threads and asynchronous I/O when executing an SQL query.",
+    "relevant_ids": ["backend-003"],
+    "category": "Node"
+  },
+  {
+    "id": "para_09",
+    "type": "paraphrase",
+    "domain": "Backend",
+    "query": "How do you apply a read-through cache pattern with Redis to speed up database lookups?",
+    "relevant_ids": ["backend-004"],
+    "category": "Redis"
+  },
+  {
+    "id": "para_10",
+    "type": "paraphrase",
+    "domain": "Backend",
+    "query": "When user traffic spikes tenfold, how do you diagnose bottlenecked connection pools, queries, or thread starvation?",
+    "relevant_ids": ["backend-005"],
+    "category": "Scalability"
+  },
+  {
+    "id": "para_11",
+    "type": "paraphrase",
+    "domain": "Frontend",
+    "query": "How do JavaScript functions remember variables from outer scopes, like maintaining state in a debounce handler?",
+    "relevant_ids": ["frontend-001"],
+    "category": "JavaScript"
+  },
+  {
+    "id": "para_12",
+    "type": "paraphrase",
+    "domain": "Frontend",
+    "query": "What reconciliation and virtual DOM diffing algorithm does React use to trigger component re-renders?",
+    "relevant_ids": ["frontend-002"],
+    "category": "React"
+  },
+  {
+    "id": "para_13",
+    "type": "paraphrase",
+    "domain": "Frontend",
+    "query": "Can you explain DNS lookup, TCP handshake, DOM construction, CSSOM, and painting on screen?",
+    "relevant_ids": ["frontend-003"],
+    "category": "Browser"
+  },
+  {
+    "id": "para_14",
+    "type": "paraphrase",
+    "domain": "Frontend",
+    "query": "Why is unknown considered type-safe in TypeScript while any disables type verification completely?",
+    "relevant_ids": ["frontend-004"],
+    "category": "TypeScript"
+  },
+  {
+    "id": "para_15",
+    "type": "paraphrase",
+    "domain": "Frontend",
+    "query": "How should components, hooks, and services be structured in a modular frontend repository?",
+    "relevant_ids": ["frontend-005"],
+    "category": "Architecture"
+  },
+  {
+    "id": "para_16",
+    "type": "paraphrase",
+    "domain": "DevOps/Cloud",
+    "query": "A server is pinned at maximum processor utilization. How do you troubleshoot with top, htop, and kill signals?",
+    "relevant_ids": ["devops-clo-001"],
+    "category": "Linux"
+  },
+  {
+    "id": "para_17",
+    "type": "paraphrase",
+    "domain": "DevOps/Cloud",
+    "query": "What is the structural distinction between a packaged container image and an active running container instance?",
+    "relevant_ids": ["devops-clo-002"],
+    "category": "Docker"
+  },
+  {
+    "id": "para_18",
+    "type": "paraphrase",
+    "domain": "DevOps/Cloud",
+    "query": "What automated quality gates like unit tests, linters, and security vulnerability scans belong in build pipelines?",
+    "relevant_ids": ["devops-clo-003"],
+    "category": "CI/CD"
+  },
+  {
+    "id": "para_19",
+    "type": "paraphrase",
+    "domain": "DevOps/Cloud",
+    "query": "How do you evaluate whether a microservice should run on EC2 virtual machines, ECS/EKS, or Lambda functions?",
+    "relevant_ids": ["devops-clo-004"],
+    "category": "Cloud"
+  },
+  {
+    "id": "para_20",
+    "type": "paraphrase",
+    "domain": "DevOps/Cloud",
+    "query": "How do Kubernetes Pods group containers, Deployments handle rollouts, and Services expose stable IPs?",
+    "relevant_ids": ["devops-clo-005"],
+    "category": "Kubernetes"
+  },
+  {
+    "id": "para_21",
+    "type": "paraphrase",
+    "domain": "ML/Data Science",
+    "query": "What strategy helps choose between forward fill, mean imputation, or row deletion for missing data columns?",
+    "relevant_ids": ["ml-data-sc-001"],
+    "category": "Python/Data"
+  },
+  {
+    "id": "para_22",
+    "type": "paraphrase",
+    "domain": "ML/Data Science",
+    "query": "When does extreme data skew make median a much more informative metric than the arithmetic mean?",
+    "relevant_ids": ["ml-data-sc-002"],
+    "category": "Statistics"
+  },
+  {
+    "id": "para_23",
+    "type": "paraphrase",
+    "domain": "ML/Data Science",
+    "query": "A neural network achieves 99% training accuracy but 65% validation accuracy. What techniques prevent overfitting?",
+    "relevant_ids": ["ml-data-sc-003"],
+    "category": "ML Fundamentals"
+  },
+  {
+    "id": "para_24",
+    "type": "paraphrase",
+    "domain": "ML/Data Science",
+    "query": "When would you pick an interpretable decision tree over logistic regression for predicting binary outcomes?",
+    "relevant_ids": ["ml-data-sc-004"],
+    "category": "Models"
+  },
+  {
+    "id": "para_25",
+    "type": "paraphrase",
+    "domain": "ML/Data Science",
+    "query": "In credit card fraud detection with 0.1% positive labels, why is precision-recall curve better than accuracy?",
+    "relevant_ids": ["ml-data-sc-005"],
+    "category": "Evaluation"
+  },
+  {
+    "id": "para_26",
+    "type": "paraphrase",
+    "domain": "System Design",
+    "query": "How would you architect TinyURL with base62 encoding, caching, and partitioning to handle 100M URLs?",
+    "relevant_ids": ["system-des-001"],
+    "category": "Fundamentals"
+  },
+  {
+    "id": "para_27",
+    "type": "paraphrase",
+    "domain": "System Design",
+    "query": "How do you guarantee two patients cannot simultaneously reserve the same clinic time slot using database locks?",
+    "relevant_ids": ["system-des-002"],
+    "category": "Backend Systems"
+  },
+  {
+    "id": "para_28",
+    "type": "paraphrase",
+    "domain": "System Design",
+    "query": "What vector database chunking, sharding, and caching strategies scale RAG question answering to 1,000,000 documents?",
+    "relevant_ids": ["system-des-003"],
+    "category": "AI Systems"
+  },
+  {
+    "id": "para_29",
+    "type": "paraphrase",
+    "domain": "System Design",
+    "query": "What are the common failure points when scaling an application from thousands to millions of active users?",
+    "relevant_ids": ["system-des-004"],
+    "category": "Scalability"
+  },
+  {
+    "id": "para_30",
+    "type": "paraphrase",
+    "domain": "System Design",
+    "query": "How do failover replicas, circuit breakers, and degraded read-only modes keep services up during primary DB failure?",
+    "relevant_ids": ["system-des-005"],
+    "category": "Reliability"
+  },
+  {
+    "id": "para_31",
+    "type": "paraphrase",
+    "domain": "DSA",
+    "query": "How to find two indices in a list that add up to a target number in O(N) time with a hash map?",
+    "relevant_ids": ["dsa-001"],
+    "category": "Arrays"
+  },
+  {
+    "id": "para_32",
+    "type": "paraphrase",
+    "domain": "DSA",
+    "query": "What is the sliding window algorithm to determine the size of the longest unique character substring?",
+    "relevant_ids": ["dsa-002"],
+    "category": "Strings"
+  },
+  {
+    "id": "para_33",
+    "type": "paraphrase",
+    "domain": "DSA",
+    "query": "How do you sort an array and use two pointers to find three numbers summing closest to a goal value?",
+    "relevant_ids": ["dsa-003"],
+    "category": "Two Pointers"
+  },
+  {
+    "id": "para_34",
+    "type": "paraphrase",
+    "domain": "DSA",
+    "query": "How do you maintain a fixed-size window across an array to maximize subarray sum in linear time?",
+    "relevant_ids": ["dsa-004"],
+    "category": "Sliding Window"
+  },
+  {
+    "id": "para_35",
+    "type": "paraphrase",
+    "domain": "DSA",
+    "query": "How to write binary search to locate both the lower and upper bounds of a repeated number?",
+    "relevant_ids": ["dsa-005"],
+    "category": "Binary Search"
+  },
+
+  {
+    "id": "noisy_01",
+    "type": "noisy_short",
+    "domain": "AI Engineering",
+    "query": "llm latency slow optimization ttft",
+    "relevant_ids": ["ai-enginee-001"],
+    "category": "LLM Fundamentals"
+  },
+  {
+    "id": "noisy_02",
+    "type": "noisy_short",
+    "domain": "AI Engineering",
+    "query": "semantic search embedding debugging misses intent",
+    "relevant_ids": ["ai-enginee-002"],
+    "category": "Embeddings"
+  },
+  {
+    "id": "noisy_03",
+    "type": "noisy_short",
+    "domain": "AI Engineering",
+    "query": "rag pipeline architecture rerank evaluation",
+    "relevant_ids": ["ai-enginee-003"],
+    "category": "RAG"
+  },
+  {
+    "id": "noisy_04",
+    "type": "noisy_short",
+    "domain": "AI Engineering",
+    "query": "deterministic workflow vs autonomous ai agent",
+    "relevant_ids": ["ai-enginee-004"],
+    "category": "Agents"
+  },
+  {
+    "id": "noisy_05",
+    "type": "noisy_short",
+    "domain": "AI Engineering",
+    "query": "langgraph state routing mock interview",
+    "relevant_ids": ["ai-enginee-005"],
+    "category": "LangGraph"
+  },
+  {
+    "id": "noisy_06",
+    "type": "noisy_short",
+    "domain": "Backend",
+    "query": "fastapi async def throughput blocking cpu",
+    "relevant_ids": ["backend-002"],
+    "category": "FastAPI"
+  },
+  {
+    "id": "noisy_07",
+    "type": "noisy_short",
+    "domain": "Backend",
+    "query": "redis caching database query pattern",
+    "relevant_ids": ["backend-004"],
+    "category": "Redis"
+  },
+  {
+    "id": "noisy_08",
+    "type": "noisy_short",
+    "domain": "Backend",
+    "query": "traffic 10x scale bottlenecks database",
+    "relevant_ids": ["backend-005"],
+    "category": "Scalability"
+  },
+  {
+    "id": "noisy_09",
+    "type": "noisy_short",
+    "domain": "Frontend",
+    "query": "javascript closures frontend practical example",
+    "relevant_ids": ["frontend-001"],
+    "category": "JavaScript"
+  },
+  {
+    "id": "noisy_10",
+    "type": "noisy_short",
+    "domain": "Frontend",
+    "query": "react rerender state changes virtual dom",
+    "relevant_ids": ["frontend-002"],
+    "category": "React"
+  },
+  {
+    "id": "noisy_11",
+    "type": "noisy_short",
+    "domain": "Frontend",
+    "query": "typescript unknown vs any differences",
+    "relevant_ids": ["frontend-004"],
+    "category": "TypeScript"
+  },
+  {
+    "id": "noisy_12",
+    "type": "noisy_short",
+    "domain": "DevOps/Cloud",
+    "query": "linux high cpu 100 troubleshooting top signals",
+    "relevant_ids": ["devops-clo-001"],
+    "category": "Linux"
+  },
+  {
+    "id": "noisy_13",
+    "type": "noisy_short",
+    "domain": "DevOps/Cloud",
+    "query": "docker image vs container difference",
+    "relevant_ids": ["devops-clo-002"],
+    "category": "Docker"
+  },
+  {
+    "id": "noisy_14",
+    "type": "noisy_short",
+    "domain": "DevOps/Cloud",
+    "query": "k8s pod deployment service kubernetes",
+    "relevant_ids": ["devops-clo-005"],
+    "category": "Kubernetes"
+  },
+  {
+    "id": "noisy_15",
+    "type": "noisy_short",
+    "domain": "ML/Data Science",
+    "query": "missing values impute remove preserve strategy",
+    "relevant_ids": ["ml-data-sc-001"],
+    "category": "Python/Data"
+  },
+  {
+    "id": "noisy_16",
+    "type": "noisy_short",
+    "domain": "ML/Data Science",
+    "query": "overfitting reduce regularization techniques",
+    "relevant_ids": ["ml-data-sc-003"],
+    "category": "ML Fundamentals"
+  },
+  {
+    "id": "noisy_17",
+    "type": "noisy_short",
+    "domain": "System Design",
+    "query": "url shortener tinyurl scaling storage design",
+    "relevant_ids": ["system-des-001"],
+    "category": "Fundamentals"
+  },
+  {
+    "id": "noisy_18",
+    "type": "noisy_short",
+    "domain": "System Design",
+    "query": "database outage failover disaster recovery",
+    "relevant_ids": ["system-des-005"],
+    "category": "Reliability"
+  },
+  {
+    "id": "noisy_19",
+    "type": "noisy_short",
+    "domain": "DSA",
+    "query": "two sum array target hashmap",
+    "relevant_ids": ["dsa-001"],
+    "category": "Arrays"
+  },
+  {
+    "id": "noisy_20",
+    "type": "noisy_short",
+    "domain": "DSA",
+    "query": "longest substring no repeating chars sliding window",
+    "relevant_ids": ["dsa-002"],
+    "category": "Strings"
+  },
+
+  {
+    "id": "ambig_01",
+    "type": "ambiguous_conversational",
+    "domain": "AI Engineering",
+    "query": "My users say the chat takes 5 seconds before words start showing. What should I check in our setup?",
+    "relevant_ids": ["ai-enginee-001"],
+    "category": "LLM Fundamentals"
+  },
+  {
+    "id": "ambig_02",
+    "type": "ambiguous_conversational",
+    "domain": "AI Engineering",
+    "query": "Users search for technical terms but get completely irrelevant matching paragraphs from our knowledge base.",
+    "relevant_ids": ["ai-enginee-002"],
+    "category": "Embeddings"
+  },
+  {
+    "id": "ambig_03",
+    "type": "ambiguous_conversational",
+    "domain": "AI Engineering",
+    "query": "How do you connect the vector database, the candidate reranker, and the prompt context in an interview app?",
+    "relevant_ids": ["ai-enginee-003"],
+    "category": "RAG"
+  },
+  {
+    "id": "ambig_04",
+    "type": "ambiguous_conversational",
+    "domain": "Backend",
+    "query": "We are getting high CPU alerts on our Python API even though we switched everything to asynchronous handlers.",
+    "relevant_ids": ["backend-002"],
+    "category": "FastAPI"
+  },
+  {
+    "id": "ambig_05",
+    "type": "ambiguous_conversational",
+    "domain": "Backend",
+    "query": "The SQL database is slowing down on hot read queries during peak morning hours.",
+    "relevant_ids": ["backend-004"],
+    "category": "Redis"
+  },
+  {
+    "id": "ambig_06",
+    "type": "ambiguous_conversational",
+    "domain": "Frontend",
+    "query": "How do I ensure an inner function keeps accessing a variable from its parent after the parent returns?",
+    "relevant_ids": ["frontend-001"],
+    "category": "JavaScript"
+  },
+  {
+    "id": "ambig_07",
+    "type": "ambiguous_conversational",
+    "domain": "Frontend",
+    "query": "Why does typing in an input field make unrelated parts of our dashboard re-render?",
+    "relevant_ids": ["frontend-002"],
+    "category": "React"
+  },
+  {
+    "id": "ambig_08",
+    "type": "ambiguous_conversational",
+    "domain": "DevOps/Cloud",
+    "query": "A background worker in our production Linux cluster is maxing out a full core and not releasing memory.",
+    "relevant_ids": ["devops-clo-001"],
+    "category": "Linux"
+  },
+  {
+    "id": "ambig_09",
+    "type": "ambiguous_conversational",
+    "domain": "System Design",
+    "query": "How do we make sure two people cannot book the same doctor at 10 AM simultaneously?",
+    "relevant_ids": ["system-des-002"],
+    "category": "Backend Systems"
+  },
+  {
+    "id": "ambig_10",
+    "type": "ambiguous_conversational",
+    "domain": "System Design",
+    "query": "If our primary database server goes down, how does the system stay online for user reads?",
+    "relevant_ids": ["system-des-005"],
+    "category": "Reliability"
+  }
+]

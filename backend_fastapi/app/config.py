@@ -1,6 +1,15 @@
 import os
+from pathlib import Path
 from typing import List
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Ensure .env in backend_fastapi or current directory is explicitly loaded and overrides stale system/process env vars
+_env_path = Path(__file__).resolve().parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path, override=True)
+else:
+    load_dotenv(override=True)
 
 
 class Settings(BaseSettings):
@@ -28,6 +37,13 @@ class Settings(BaseSettings):
 
     # RAG caching configuration
     RAG_CACHE_TTL: int = 1800  # 30 minutes
+
+    # Reranking configuration
+    RERANKING_ENABLED: bool = True
+    RERANKER_PROVIDER: str = "lexical_cross_encoder"  # lexical_cross_encoder | cross_encoder | llm | none
+    RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    RERANK_TOP_N: int = 20
+    RERANK_FINAL_K: int = 5
 
     # AI / LLM configuration - Groq
     GROQ_API_KEY: str = ""

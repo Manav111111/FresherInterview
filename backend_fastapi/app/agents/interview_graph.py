@@ -181,26 +181,35 @@ def identify_candidate_skill_gaps(role: str, candidate_skills: List[str]) -> Lis
 # 3. DETERMINISTIC REPORT & READINESS HELPERS
 # ==========================================
 
+DIFFICULTY_WEIGHTS = {
+    "easy": 0.8,
+    "medium": 1.0,
+    "hard": 1.2,
+}
+
+
 def classify_score_result(score: int, answer_text: str = "") -> str:
     ans_clean = (answer_text or "").strip().lower()
-    if len(ans_clean.split()) < 4 or any(phrase in ans_clean for phrase in ["don't know", "dont know", "no idea", "skip", "idk", "haven't learned"]):
+    if len(ans_clean.split()) < 3 or any(phrase in ans_clean for phrase in ["don't know", "dont know", "no idea", "skip", "idk", "haven't learned"]):
         return "insufficient"
     if score >= 75:
         return "correct"
-    if score >= 45:
+    if score >= 50:
         return "partially_correct"
     return "incorrect"
 
 
 def get_readiness_classification(overall_score: int) -> tuple:
-    if overall_score >= 85:
-        return "Ready for Hire", "Exceptional candidate demonstrating deep architectural mastery, robust technical reasoning, and crisp communication."
-    elif overall_score >= 70:
-        return "Strong / Nearly Ready", "Solid competency across primary concepts with minor gaps in production scale edge-cases."
-    elif overall_score >= 50:
+    if overall_score >= 90:
+        return "Excellent / Interview Ready", "Demonstrated exceptional domain mastery, architectural depth, and crisp communication."
+    elif overall_score >= 75:
+        return "Strong / Nearly Ready", "Solid conceptual and practical foundation. Ready for mid-level technical rounds with minor refinement."
+    elif overall_score >= 60:
         return "Developing / Needs Practice", "Demonstrated foundational knowledge but requires focused practice in depth, trade-offs, and system resilience."
+    elif overall_score >= 40:
+        return "Significant Improvement Needed", "Partial conceptual awareness. Requires targeted revision on system mechanics and structured answering."
     else:
-        return "Early Stage / Foundation Required", "Early career stage. Recommend systematic drills on core domain fundamentals before retrying."
+        return "Fundamentals Need Attention", "Early career stage. Recommend systematic drills on core domain fundamentals before retrying."
 
 
 def calculate_deterministic_report(
@@ -237,7 +246,7 @@ def calculate_deterministic_report(
     all_missing = []
     question_reviews = []
 
-    diff_weights = {"easy": 1.0, "medium": 1.2, "hard": 1.4}
+    diff_weights = DIFFICULTY_WEIGHTS
     total_weighted_score = 0.0
     total_weight = 0.0
 
@@ -248,7 +257,7 @@ def calculate_deterministic_report(
         scores_list.append(score)
 
         difficulty = str(q.get("difficulty", "medium")).lower()
-        weight = diff_weights.get(difficulty, 1.2)
+        weight = diff_weights.get(difficulty, 1.0)
         total_weighted_score += (score * weight)
         total_weight += weight
 
@@ -334,6 +343,17 @@ def calculate_deterministic_report(
     aggregated_category_scores = {}
     for cat_name, val_list in target_categories.items():
         aggregated_category_scores[cat_name] = round(sum(val_list) / len(val_list)) if val_list else overall_score
+
+    # Backward compatibility aliases for category score keys
+    if is_technical:
+        if "Completeness & Edge Cases" in aggregated_category_scores:
+            aggregated_category_scores["Completeness"] = aggregated_category_scores["Completeness & Edge Cases"]
+        if "Reasoning & Trade-offs" in aggregated_category_scores:
+            aggregated_category_scores["Problem Solving"] = aggregated_category_scores["Reasoning & Trade-offs"]
+        if "Communication & Clarity" in aggregated_category_scores:
+            aggregated_category_scores["Communication"] = aggregated_category_scores["Communication & Clarity"]
+        if "Relevance & Conciseness" in aggregated_category_scores:
+            aggregated_category_scores["Relevance"] = aggregated_category_scores["Relevance & Conciseness"]
 
     topic_accuracy_list = []
     for top_name, t_data in topic_tracker.items():
@@ -1005,11 +1025,19 @@ class AdaptiveInterviewGraph:
     """
 
     async def ainvoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        import time
+        from app.core.telemetry import get_current_request_id
+        g_start = time.perf_counter()
+        req_id = get_current_request_id()
+
         action = state.get("action", "start")
 
         if action == "start":
             # Initializes session, extracts resume evidence, selects Question 1
-            return await build_interview_plan_node(state)
+            res = await build_interview_plan_node(state)
+            res["request_id"] = req_id
+            res["latency_ms"] = round((time.perf_counter() - g_start) * 1000.0, 2)
+            return res
 
         elif action == "feedback" or action == "answer":
             # 1. Evaluate candidate's answer
@@ -1109,17 +1137,42 @@ class AdaptiveInterviewGraph:
                 "concepts_covered": concepts_cov,
                 "answers": answers,
                 "evaluations": evaluations,
+                "request_id": req_id,
+                "latency_ms": round((time.perf_counter() - g_start) * 1000.0, 2),
             }
 
         elif action == "summary":
-            return await generate_summary_node(state)
+            res = await generate_summary_node(state)
+            res["request_id"] = req_id
+            res["latency_ms"] = round((time.perf_counter() - g_start) * 1000.0, 2)
+            return res
 
         # Default fallback
-        return await build_interview_plan_node(state)
+        res = await build_interview_plan_node(state)
+        res["request_id"] = req_id
+        res["latency_ms"] = round((time.perf_counter() - g_start) * 1000.0, 2)
+        return res
 
     def invoke(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Safe synchronous compatibility wrapper for callers outside an active event loop.
+        Uses asyncio.run() when no loop is running, or delegates safely if a loop is active.
+        """
         import asyncio
-        return asyncio.get_event_loop().run_until_complete(self.ainvoke(state))
+        import concurrent.futures
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # If called from within an active event loop, execute in a worker thread to prevent deadlock
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(lambda: asyncio.run(self.ainvoke(state)))
+                return future.result()
+        else:
+            return asyncio.run(self.ainvoke(state))
 
 
 # Global singleton graph instance

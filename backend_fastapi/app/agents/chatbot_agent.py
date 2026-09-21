@@ -8,6 +8,7 @@ conversation memory, security guardrails, and safe link resolution.
 import json
 import logging
 import re
+import time
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
@@ -176,6 +177,7 @@ async def generate_chatbot_response(
     6. LLM Orchestration (Grounded generation with provider router)
     7. Layer 3 & 4 Guardrails (Link validation, URL sanitization, secret scrubbing)
     """
+    pipeline_start = time.perf_counter()
     user_msg = (message or "").strip()
     if not user_msg:
         return {
@@ -337,6 +339,9 @@ async def generate_chatbot_response(
     # Dynamic suggestions based on intent
     suggested_actions = _generate_contextual_chips(routing.intent, merged_context)
 
+    from app.core.telemetry import get_current_request_id
+    total_latency_ms = round((time.perf_counter() - (pipeline_start if 'pipeline_start' in locals() else time.perf_counter())) * 1000.0, 2)
+
     return {
         "success": True,
         "reply": clean_reply,
@@ -345,6 +350,8 @@ async def generate_chatbot_response(
         "suggested_actions": suggested_actions,
         "provider": provider_used,
         "model": model_used,
+        "request_id": get_current_request_id(),
+        "latency_ms": total_latency_ms,
     }
 
 
@@ -369,10 +376,31 @@ def _generate_grounded_fallback(
             "Tell me your target role (e.g. AI Engineer, Full Stack, Backend) and I can suggest where to start!"
         )
 
-    if intent == AssistantIntent.CAREER_GUIDANCE:
-        role = context.get("target_role", "Software Engineering")
+    if intent in (AssistantIntent.CAREER_GUIDANCE, AssistantIntent.ROADMAP_HELP, AssistantIntent.LEARNING_HELP, AssistantIntent.INTERVIEW_HELP) or "what should i learn" in msg_lower or "preparing for" in msg_lower:
+        role = context.get("target_role") or "Software Engineering"
+        role_skills_str = ""
+        try:
+            from app.services.kb_loader import kb_loader
+            matched = kb_loader.match_role(role)
+            if matched and matched.get("core_skills"):
+                role_skills_str = ", ".join(matched.get("core_skills", [])[:6])
+        except Exception:
+            pass
+
+        if not role_skills_str:
+            role_lower = role.lower()
+            if "ai" in role_lower or "ml" in role_lower or "learning" in role_lower:
+                role_skills_str = "Python, RAG, LLMs, FastAPI, Embeddings, PyTorch, Machine Learning"
+            elif "devops" in role_lower or "cloud" in role_lower:
+                role_skills_str = "Docker, Kubernetes, Linux, CI/CD, AWS, Terraform"
+            elif "frontend" in role_lower:
+                role_skills_str = "JavaScript, TypeScript, React, HTML/CSS, Tailwind CSS"
+            else:
+                role_skills_str = "Python, Data Structures, APIs, SQL, System Design"
+
         return (
-            f"As a fresher preparing for **{role}**, here is the recommended 4-step workflow on Fresher.AI:\n\n"
+            f"As a fresher preparing for **{role}**, here are key technical competencies to focus on: **{role_skills_str}**.\n\n"
+            f"Here is your recommended 4-step preparation workflow on Fresher.AI:\n"
             "1. **Analyze Your Resume** (`/scorer`): Discover your ATS score, detected skills, and missing role requirements.\n"
             "2. **Generate Your Roadmap** (`/roadmap`): Follow a structured weekly curriculum with verified projects and resources.\n"
             "3. **Practice AI Mock Interviews** (`/interview`): Test your knowledge with adaptive technical and behavioral questions.\n"

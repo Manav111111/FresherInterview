@@ -49,7 +49,8 @@ async def run_ingestion(batch_size: int = 50, recreate_collection: bool = False)
     print(f"  ✓ Qdrant collection '{settings.QDRANT_KB_COLLECTION}' ready.")
 
     # 3. Generate embeddings in batches
-    print("\n[3/5] Generating semantic embeddings for KB records...")
+    print("\n[3/5] Generating semantic embeddings for KB records with Gemini API...")
+    print("  [STRICT MODE] Fallback embeddings disabled (allow_fallback=False).")
     all_points = []
     stats = {
         "Roles": 0,
@@ -57,7 +58,7 @@ async def run_ingestion(batch_size: int = 50, recreate_collection: bool = False)
         "Resources": 0,
         "YouTube Channels / Playlists": 0,
         "Projects": 0,
-        "Interview Topics": 0,
+        "Interview Questions": 0,
         "Roadmap Records": 0,
         "Tools": 0,
         "Other": 0,
@@ -65,10 +66,13 @@ async def run_ingestion(batch_size: int = 50, recreate_collection: bool = False)
 
     # Extract all embedding texts
     texts = [r["embedding_text"] for r in records]
-    print(f"  Computing embeddings for {len(texts)} items (batch size: {batch_size})...")
+    print(f"  Computing live Gemini embeddings for {len(texts)} items (batch size: {batch_size})...")
 
-    embeddings = await embedding_service.get_embeddings_batch(texts, batch_size=batch_size)
-    print(f"  ✓ Successfully computed {len(embeddings)} vectors.")
+    embeddings = await embedding_service.get_embeddings_batch(
+        texts, batch_size=batch_size, allow_fallback=False
+    )
+    print(f"  ✓ Successfully computed {len(embeddings)} live Gemini vectors.")
+    print(f"  ✓ Live API calls: {embedding_service.live_call_count} | Fallbacks: {embedding_service.fallback_count} | Failures: {embedding_service.failure_count}")
 
     # 4. Prepare points and calculate statistics
     print("\n[4/5] Preparing vectors and metadata payloads for Qdrant...")
@@ -85,7 +89,7 @@ async def run_ingestion(batch_size: int = 50, recreate_collection: bool = False)
         elif entity in ("Projects", "projects"):
             stats["Projects"] += 1
         elif entity in ("Interview_Questions", "interview_prep"):
-            stats["Interview Topics"] += 1
+            stats["Interview Questions"] += 1
         elif entity in ("Weekly_Roadmaps", "roadmaps"):
             stats["Roadmap Records"] += 1
         elif entity in ("Tools_Platforms", "tools"):
@@ -93,10 +97,14 @@ async def run_ingestion(batch_size: int = 50, recreate_collection: bool = False)
         else:
             stats["Other"] += 1
 
+        payload = dict(record.get("payload", {}))
+        payload["entity_type"] = entity
+        payload["id"] = record["id"]
+
         all_points.append({
             "id": record["id"],
             "vector": vec,
-            "payload": record["payload"],
+            "payload": payload,
         })
 
     # 5. Batch upsert into Qdrant
@@ -114,12 +122,15 @@ async def run_ingestion(batch_size: int = 50, recreate_collection: bool = False)
     print(f"Resources                   : {stats['Resources']}")
     print(f"YouTube channels / Playlists: {stats['YouTube Channels / Playlists']}")
     print(f"Projects                    : {stats['Projects']}")
-    print(f"Interview topics            : {stats['Interview Topics']}")
+    print(f"Interview Questions         : {stats['Interview Questions']}")
     print(f"Roadmap records             : {stats['Roadmap Records']}")
     print(f"Tools & Platforms           : {stats['Tools']}")
     if stats['Other'] > 0:
         print(f"Other Entities              : {stats['Other']}")
     print(f"Total Vectors Ingested      : {total_upserted}")
+    print(f"Live Gemini API Count       : {embedding_service.live_call_count}")
+    print(f"Fallback Vectors Used       : {embedding_service.fallback_count}")
+    print(f"Embedding Failures          : {embedding_service.failure_count}")
     print(f"Elapsed Time                : {elapsed}s")
     print("=" * 70 + "\n")
 

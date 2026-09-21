@@ -34,9 +34,13 @@ async def get_redis() -> Optional[aioredis.Redis]:
     return _redis_client
 
 
-async def set_cache(key: str, value: Any, ex: Optional[int] = None, ttl: Optional[int] = None) -> None:
-    """Sets cache in Redis with in-memory fallback."""
-    expire = ex or ttl
+async def set_cache(key: str, value: Any, ttl: Optional[int] = None, ex: Optional[int] = None) -> None:
+    """Sets cache in Redis with in-memory fallback. Canonical expiry param is ttl, ex supported for compatibility."""
+    import time
+    from app.core.telemetry import telemetry
+
+    start_time = time.perf_counter()
+    expire = ttl if ttl is not None else ex
     val_str = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
     _local_cache_store[key] = val_str
     redis_client = await get_redis()
@@ -49,24 +53,41 @@ async def set_cache(key: str, value: Any, ex: Optional[int] = None, ttl: Optiona
         except Exception as e:
             logger.warning(f"Error setting Redis cache key {key}: {e}")
 
+    duration_ms = (time.perf_counter() - start_time) * 1000.0
+    prefix = key.split(":")[0] if ":" in key else "cache"
+    telemetry.log_cache_event("set", prefix, duration_ms, hit=True)
+
 
 
 async def get_cache(key: str) -> Optional[str]:
     """Gets cache value from Redis with in-memory fallback."""
+    import time
+    from app.core.telemetry import telemetry
+
+    start_time = time.perf_counter()
+    val = None
     redis_client = await get_redis()
     if redis_client:
         try:
             val = await redis_client.get(key)
-            if val is not None:
-                return val
         except Exception as e:
             logger.warning(f"Error getting Redis cache key {key}: {e}")
 
-    return _local_cache_store.get(key)
+    if val is None:
+        val = _local_cache_store.get(key)
+
+    duration_ms = (time.perf_counter() - start_time) * 1000.0
+    prefix = key.split(":")[0] if ":" in key else "cache"
+    telemetry.log_cache_event("get", prefix, duration_ms, hit=(val is not None))
+    return val
 
 
 async def delete_cache(key: str) -> None:
     """Deletes cache key from Redis and in-memory store."""
+    import time
+    from app.core.telemetry import telemetry
+
+    start_time = time.perf_counter()
     _local_cache_store.pop(key, None)
     redis_client = await get_redis()
     if redis_client:
@@ -74,6 +95,10 @@ async def delete_cache(key: str) -> None:
             await redis_client.delete(key)
         except Exception as e:
             logger.warning(f"Error deleting Redis cache key {key}: {e}")
+
+    duration_ms = (time.perf_counter() - start_time) * 1000.0
+    prefix = key.split(":")[0] if ":" in key else "cache"
+    telemetry.log_cache_event("delete", prefix, duration_ms, hit=True)
 
 
 async def close_redis():

@@ -91,6 +91,22 @@ class GeminiProvider:
 
         latency_ms = (time.perf_counter() - start_time) * 1000.0
 
+        # Extract real token usage from Gemini usageMetadata payload
+        usage_meta = data.get("usageMetadata", {})
+        prompt_tokens = usage_meta.get("promptTokenCount")
+        completion_tokens = usage_meta.get("candidatesTokenCount")
+        total_tokens = usage_meta.get("totalTokenCount")
+        usage_type = "actual" if (prompt_tokens is not None and completion_tokens is not None) else "unavailable"
+
+        from app.core.telemetry import TokenUsage, UsageType, calculate_cost
+        t_usage = TokenUsage(
+            input_tokens=prompt_tokens,
+            output_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            usage_type=UsageType.ACTUAL if usage_type == "actual" else UsageType.UNAVAILABLE,
+        )
+        cost = calculate_cost("gemini", chosen_model, t_usage)
+
         parsed = None
         if json_mode:
             cleaned = clean_gemini_json_text(raw_content)
@@ -112,4 +128,9 @@ class GeminiProvider:
             provider=AIProviderName.GEMINI.value,
             model=chosen_model,
             latency_ms=round(latency_ms, 2),
+            input_tokens=prompt_tokens,
+            output_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            token_usage_type=usage_type,
+            estimated_cost_usd=cost,
         )

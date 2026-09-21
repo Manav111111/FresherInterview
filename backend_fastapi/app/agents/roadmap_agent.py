@@ -242,8 +242,8 @@ def _build_deterministic_modules(
                 "article": week_resources[1]["url"] if len(week_resources) > 1 else (week_resources[0]["url"] if week_resources else "https://developer.mozilla.org"),
             })
     else:
-        # Step fallback progression
-        steps = missing_names[:6] if missing_names else [
+        # Step fallback progression - ensure at least 4-6 weekly modules
+        default_steps = [
             f"{role} Fundamentals & Architecture",
             "Data Persistence & Database Systems",
             "High-Throughput APIs & Distributed Services",
@@ -251,6 +251,17 @@ def _build_deterministic_modules(
             "Containerization, CI/CD & Cloud Infrastructure",
             "Capstone Project & System Design Interview Prep",
         ]
+        if missing_names:
+            steps = list(missing_names)
+            # Supplement if candidate had only 1 or 2 missing skills so progression is substantial
+            for ds in default_steps:
+                if len(steps) >= 4:
+                    break
+                if ds not in steps:
+                    steps.append(ds)
+            steps = steps[:6]
+        else:
+            steps = default_steps
 
         for idx, step_name in enumerate(steps):
             week_num = idx + 1
@@ -492,11 +503,13 @@ async def generate_career_roadmap(
                         "docUrl": doc_url,
                         "youtube": video_url,
                         "docs": doc_url,
+                        "article": doc_url,
                     })
 
-                return _assemble_complete_roadmap(
-                    clean_role, pkg, enriched_modules, rag_data, gap_data, is_personalized
-                )
+                if len(enriched_modules) >= 3:
+                    return _assemble_complete_roadmap(
+                        clean_role, pkg, enriched_modules, rag_data, gap_data, is_personalized
+                    )
     except Exception as e:
         logger.warning(f"AI roadmap generation error ({e}), generating RAG-grounded fallback.")
 

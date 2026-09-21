@@ -117,7 +117,7 @@ async def upload_resume(
         await set_cache(
             f"resume:{user_id}",
             json.dumps(resume_payload),
-            ex=60 * 60 * 24 * 7,  # 7 days
+            ttl=60 * 60 * 24 * 7,  # 7 days
         )
 
         return {
@@ -180,7 +180,7 @@ async def get_user_resume(
                 "recommendations": db_row.get("recommendations", []),
             }
             # Cache in Redis
-            await set_cache(f"resume:{user_id}", json.dumps(mapped_data), ex=60 * 60 * 24 * 7)
+            await set_cache(f"resume:{user_id}", json.dumps(mapped_data), ttl=60 * 60 * 24 * 7)
             return {
                 "success": True,
                 "source": "supabase",

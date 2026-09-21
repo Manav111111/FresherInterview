@@ -1,5 +1,6 @@
 import json
 import uuid
+import time
 import logging
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -143,9 +144,16 @@ async def start_interview(
 
     # 2. Insert into Supabase with local fallback
     supabase = get_supabase()
+    db_start = time.perf_counter()
     try:
         supabase.table("interviews").insert(db_payload).execute()
+        db_latency = (time.perf_counter() - db_start) * 1000.0
+        from app.core.telemetry import telemetry
+        telemetry.log_db_event("insert", "interviews", db_latency, status="success")
     except Exception as db_err:
+        db_latency = (time.perf_counter() - db_start) * 1000.0
+        from app.core.telemetry import telemetry
+        telemetry.log_db_event("insert", "interviews", db_latency, status="fallback")
         logger.warning(f"Supabase interview creation failed ({db_err}). Storing in local fallback.")
         _mock_interviews_db[interview_id] = db_payload
 
@@ -414,7 +422,7 @@ async def get_all_interviews(
         ]
 
     # Cache in Redis
-    await set_cache(cache_key, json.dumps(interviews_list), ex=60 * 60)
+    await set_cache(cache_key, json.dumps(interviews_list), ttl=60 * 60)
 
     return {
         "success": True,

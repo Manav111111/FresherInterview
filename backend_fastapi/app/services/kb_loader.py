@@ -64,27 +64,41 @@ class KnowledgeBaseLoader:
         try:
             from data import SHEETS_REGISTRY, get_playlists
 
+            pk_map = {
+                "Roles": "role_id",
+                "Foundation": "skill_id",
+                "Skills": "skill_id",
+                "Weekly_Roadmaps": "roadmap_id",
+                "Projects": "project_id",
+                "Resources": "resource_id",
+                "YouTube_Channels": "channel_id",
+                "Interview_Questions": "question_id",
+                "Resume_Keywords": "keyword_id",
+                "Skill_Matrix": "matrix_id",
+                "Market_Signals": "signal_id",
+                "Certifications": "cert_id",
+                "Tools_Platforms": "tool_id",
+                "Common_Mistakes": "mistake_id",
+                "Day_In_The_Life": "role_id",
+                "Career_Transitions": "transition_id",
+                "Metadata_Schema": "schema_id",
+            }
             for sheet in SHEETS_REGISTRY:
                 sheet_name = sheet["name"]
                 data = sheet["data_fn"]()
+                pk_field = pk_map.get(sheet_name)
                 for item in data:
-                    point_id = (
-                        item.get("role_id")
-                        or item.get("skill_id")
-                        or item.get("roadmap_id")
-                        or item.get("project_id")
-                        or item.get("resource_id")
-                        or item.get("channel_id")
-                        or item.get("question_id")
-                        or item.get("keyword_id")
-                        or item.get("matrix_id")
-                        or item.get("signal_id")
-                        or item.get("cert_id")
-                        or item.get("tool_id")
-                        or item.get("mistake_id")
-                        or item.get("transition_id")
-                        or item.get("schema_id")
-                    )
+                    point_id = item.get(pk_field) if pk_field else None
+                    if not point_id:
+                        point_id = (
+                            item.get("question_id")
+                            or item.get("skill_id")
+                            or item.get("role_id")
+                            or item.get("resource_id")
+                            or item.get("project_id")
+                            or item.get("roadmap_id")
+                            or item.get("channel_id")
+                        )
                     emb_text = item.get("embedding_text", "")
                     payload = dict(item)
                     if "embedding_text" in payload:

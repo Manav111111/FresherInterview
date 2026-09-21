@@ -139,7 +139,7 @@ async def run_validation():
     # [11] Redis Cache Read/Write
     try:
         test_key = "test_val_validation_rag"
-        await set_cache(test_key, "fresherai_cached_ok", ex=10)
+        await set_cache(test_key, "fresherai_cached_ok", ttl=10)
         val = await get_cache(test_key)
         report(11, "Redis Caching", val == "fresherai_cached_ok", "Cache write & read verified (or in-memory session)")
     except Exception as e:

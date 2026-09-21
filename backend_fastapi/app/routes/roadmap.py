@@ -155,7 +155,7 @@ async def create_roadmap(
         mapped_roadmap = _map_roadmap_from_db(db_payload)
 
         # 3. Cache single roadmap and clear user history cache
-        await set_cache(f"roadmap:{roadmap_id}", json.dumps(mapped_roadmap), ex=60 * 60)
+        await set_cache(f"roadmap:{roadmap_id}", json.dumps(mapped_roadmap), ttl=60 * 60)
 
         await delete_cache(f"userRoadmaps:{user_id}")
 
@@ -221,7 +221,7 @@ async def get_all_roadmaps(
         ]
 
     # Update cache
-    await set_cache(cache_key, json.dumps(roadmaps_list), ex=60 * 60)
+    await set_cache(cache_key, json.dumps(roadmaps_list), ttl=60 * 60)
 
     return {
         "success": True,
@@ -278,7 +278,7 @@ async def get_roadmap_by_id(
         )
 
     # Cache single roadmap
-    await set_cache(f"roadmap:{roadmap_id}", json.dumps(roadmap), ex=60 * 60)
+    await set_cache(f"roadmap:{roadmap_id}", json.dumps(roadmap), ttl=60 * 60)
 
     return {
         "success": True,

@@ -52,30 +52,45 @@ def export_all_json(output_dir: str):
         print(f"Exported: {file_name:<25} ({len(data):>3} items)")
         
         # Transform into Qdrant point payloads
+        pk_map = {
+            "Roles": "role_id",
+            "Foundation": "skill_id",
+            "Skills": "skill_id",
+            "Weekly_Roadmaps": "roadmap_id",
+            "Projects": "project_id",
+            "Resources": "resource_id",
+            "YouTube_Channels": "channel_id",
+            "Interview_Questions": "question_id",
+            "Resume_Keywords": "keyword_id",
+            "Skill_Matrix": "matrix_id",
+            "Market_Signals": "signal_id",
+            "Certifications": "cert_id",
+            "Tools_Platforms": "tool_id",
+            "Common_Mistakes": "mistake_id",
+            "Day_In_The_Life": "role_id",
+            "Career_Transitions": "transition_id",
+            "Metadata_Schema": "schema_id",
+        }
         for item in data:
-            # Determine ID
-            point_id = (
-                item.get("role_id") or
-                item.get("skill_id") or
-                item.get("roadmap_id") or
-                item.get("project_id") or
-                item.get("resource_id") or
-                item.get("channel_id") or
-                item.get("question_id") or
-                item.get("keyword_id") or
-                item.get("matrix_id") or
-                item.get("signal_id") or
-                item.get("cert_id") or
-                item.get("tool_id") or
-                item.get("mistake_id") or
-                item.get("transition_id") or
-                item.get("schema_id")
-            )
+            pk_field = pk_map.get(sheet_name)
+            point_id = item.get(pk_field) if pk_field else None
+            if not point_id:
+                point_id = (
+                    item.get("question_id") or
+                    item.get("skill_id") or
+                    item.get("role_id") or
+                    item.get("resource_id") or
+                    item.get("project_id") or
+                    item.get("roadmap_id") or
+                    item.get("channel_id")
+                )
             
             embedding_text = item.get("embedding_text", "")
             
             # Clean payload copy
             payload = dict(item)
+            payload["entity_type"] = sheet_name
+            payload["id"] = point_id
             if "embedding_text" in payload:
                 del payload["embedding_text"]
             
@@ -103,11 +118,14 @@ def export_all_json(output_dir: str):
     print(f"Exported: {'playlists.json':<25} ({len(playlists_data):>3} items)")
 
     for pl in playlists_data:
+        pl_payload = dict(pl)
+        pl_payload["entity_type"] = "Playlist"
+        pl_payload["id"] = pl["playlist_id"]
         qdrant_points.append({
             "id": pl["playlist_id"],
             "collection": "resources",
             "entity_type": "Playlist",
-            "payload": pl,
+            "payload": pl_payload,
             "embedding_text": f"Playlist: {pl['playlist_name']}\nChannel: {pl['channel_name']}\nSkill: {pl['skill_area']}\nRole: {pl['role_area']}"
         })
 

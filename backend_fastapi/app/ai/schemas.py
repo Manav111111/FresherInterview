@@ -44,6 +44,13 @@ class AIResponse(BaseModel):
     latency_ms: float
     fallback_used: bool = False
     error: Optional[str] = None
+    request_id: Optional[str] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+    token_usage_type: str = "unavailable"
+    estimated_cost_usd: Optional[float] = None
+    attempts: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 # ─── Strict Structured Pydantic Schemas for Outputs ───
