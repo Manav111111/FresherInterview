@@ -662,31 +662,52 @@ class RetrievalService:
         excluded_question_ids: Optional[List[str]] = None,
         excluded_recent_concepts: Optional[List[str]] = None,
         top_k: int = 15,
+        excluded_history: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Retrieves grounded interview question candidates from Qdrant RAG pool
         with comprehensive multi-dimensional filtering, skill-gap boosting,
-        deduplication, and resilient in-memory fallback to the 760-question bank.
+        strict canonical question deduplication, variant exclusion, and resilient
+        in-memory fallback to the 760-question bank.
         """
-        excluded_ids = set(excluded_question_ids or [])
+        from app.utils.interview_dedup import (
+            get_canonical_bank_map,
+            is_candidate_duplicate,
+            normalize_question_tokens,
+            calculate_question_similarity,
+        )
+
+        # 1. Build comprehensive exclusion history if not explicitly provided
+        if not excluded_history:
+            clean_excluded_ids = set(str(qid).strip().lower() for qid in (excluded_question_ids or []) if qid)
+            # Add bank-level related question IDs for all excluded IDs
+            bank_map = get_canonical_bank_map()
+            for qid in list(clean_excluded_ids):
+                if qid in bank_map:
+                    for rel_id in bank_map[qid].get("related_question_ids", []):
+                        if rel_id:
+                            clean_excluded_ids.add(str(rel_id).strip().lower())
+
+            excluded_history = {
+                "excluded_ids": clean_excluded_ids,
+                "asked_canonical_ids": clean_excluded_ids,
+                "asked_related_ids": set(),
+                "asked_fingerprints": set(),
+                "asked_token_sets": [],
+                "asked_projects": set(),
+            }
+
         recent_concepts = set(c.lower() for c in (excluded_recent_concepts or []))
         role_lower = (role or "").lower()
         gaps_lower = set(g.lower() for g in (skill_gaps or []))
         resume_lower = set(t.lower() for t in (resume_topics or []))
         target_diff = (difficulty or "").lower()
 
-        # 1. Load canonical candidates from 760-question bank
-        try:
-            from data.interview_question_bank_v2 import get_interview_question_bank
-        except ImportError:
-            try:
-                from fresher_ai_kb.data.interview_question_bank_v2 import get_interview_question_bank
-            except ImportError:
-                get_interview_question_bank = lambda: []
+        # 2. Load canonical candidates from 760-question bank
+        bank_map = get_canonical_bank_map()
+        all_bank_questions = list(bank_map.values())
 
-        all_bank_questions = get_interview_question_bank()
-
-        # 2. Attempt Qdrant semantic search
+        # 3. Attempt Qdrant semantic search
         query_text = f"{domain or role} {subcategory or ''} {skill or ''} interview question {difficulty or ''}"
         cache_key = f"rag:interview_v2:{role}:{domain or 'all'}:{subcategory or 'all'}:{difficulty or 'all'}:{top_k}"
 
@@ -702,21 +723,23 @@ class RetrievalService:
         except Exception as e:
             logger.debug(f"Qdrant interview query notice (fallback available): {e}")
 
-        # Map Qdrant hits to IDs
+        # Map Qdrant hits to canonical IDs ONLY (never point UUID)
         qdrant_id_map = {}
         for h in qdrant_hits:
             p = h.get("payload", {})
-            qid = p.get("question_id") or str(h.get("id"))
+            qid = p.get("question_id")
             if qid:
-                qdrant_id_map[qid] = h.get("score", 0.7)
+                clean_qid = str(qid).strip().lower()
+                qdrant_id_map[clean_qid] = h.get("score", 0.7)
 
-        # 3. Score candidates from the full bank
+        # 4. Score eligible candidates from full bank, filtering out duplicates and variants
         scored_candidates = []
         for q in all_bank_questions:
-            qid = q.get("question_id", "")
-            if qid in excluded_ids:
+            # Rigorous deduplication check against canonical IDs, variants, and text fingerprints
+            if is_candidate_duplicate(q, excluded_history):
                 continue
 
+            qid = str(q.get("question_id", "")).strip().lower()
             q_domain = q.get("domain", "")
             q_subcat = q.get("subcategory", "")
             q_diff = q.get("difficulty", "medium").lower()
@@ -770,16 +793,32 @@ class RetrievalService:
         # Sort descending by score
         scored_candidates.sort(key=lambda x: x[0], reverse=True)
 
-        # 4. Diversity selection: ensure varied subcategories
+        # 5. Diversity selection: ensure varied subcategories and no intra-batch duplicate variants
         selected: List[Dict[str, Any]] = []
         seen_subcats = Counter()
+        selected_token_sets = []
+        selected_related_ids = set()
 
         for score, q in scored_candidates:
             sub = q.get("subcategory", "General")
             if seen_subcats[sub] >= 2 and len(selected) < top_k:
                 continue
 
+            qid = str(q.get("question_id", "")).strip().lower()
+            if qid in selected_related_ids:
+                continue
+
+            # Check semantic overlap with already selected candidates in this batch
+            q_tokens = normalize_question_tokens(q.get("question", ""))
+            if any(len(q_tokens & st) / len(q_tokens | st) >= 0.65 for st in selected_token_sets if (q_tokens | st)):
+                continue
+
             seen_subcats[sub] += 1
+            if q_tokens:
+                selected_token_sets.append(q_tokens)
+            for r_id in q.get("related_question_ids", []):
+                selected_related_ids.add(str(r_id).strip().lower())
+
             selected.append({
                 "question_id": q.get("question_id"),
                 "domain": q.get("domain"),

@@ -3,9 +3,12 @@ import api from "../utils/axios";
 /**
  * Fetch current authenticated user session and coin balance
  */
-export const getCurrentUser = async () => {
+export const getCurrentUser = async (options = {}) => {
   try {
-    const response = await api.get("/api/me");
+    const response = await api.get("/api/me", {
+      timeout: options.timeout || 6000,
+      ...options,
+    });
     return response.data;
   } catch (error) {
     console.warn("User not authenticated or session expired:", error.response?.data || error.message);

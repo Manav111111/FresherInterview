@@ -99,7 +99,10 @@ async def start_interview(
             detail="Failed to generate interview question",
         )
 
-    # Formatted initial question object
+    # Formatted initial question object with canonical tracking
+    from app.utils.interview_dedup import normalize_question_fingerprint
+    q1_fp = first_q.get("normalized_fingerprint") or normalize_question_fingerprint(first_q.get("question", ""))
+
     q1 = {
         "question_id": first_q.get("question_id", "q_001"),
         "question": first_q.get("question", ""),
@@ -109,6 +112,8 @@ async def start_interview(
         "source": first_q.get("source", "standard"),
         "is_follow_up": False,
         "resume_reference": first_q.get("resume_reference"),
+        "related_question_ids": first_q.get("related_question_ids", []),
+        "normalized_fingerprint": q1_fp,
         "userAnswer": "",
         "feedback": {},
     }
@@ -130,6 +135,7 @@ async def start_interview(
         "max_followups_total": 2,
         "followups_for_current_question": 0,
         "question_ids_asked": result.get("question_ids_asked", [q1["question_id"]]),
+        "question_fingerprints_asked": result.get("question_fingerprints_asked", [q1_fp] if q1_fp else []),
         "concepts_covered": result.get("concepts_covered", []),
         "verified_resume_projects": result.get("verified_resume_projects", []),
         "verified_resume_skills": result.get("verified_resume_skills", []),
@@ -229,7 +235,7 @@ async def submit_answer(
             detail="Interview already completed",
         )
 
-    # 2. Get current question
+    # 2. Get current question & idempotency guard
     curr_idx = interview.get("current_question", 0)
     questions = list(interview.get("questions", []))
 
@@ -240,9 +246,28 @@ async def submit_answer(
         )
 
     current_q = questions[curr_idx]
+
+    # Idempotency check: if current question already evaluated with this exact answer and next question exists
+    if current_q.get("userAnswer") == body.answer and current_q.get("feedback") and curr_idx + 1 < len(questions):
+        logger.info(f"Duplicate submission detected for interview {body.interviewId} question {curr_idx}; returning existing next question.")
+        next_existing_q = questions[curr_idx + 1]
+        return {
+            "success": True,
+            "completed": False,
+            "currentQuestion": curr_idx + 1,
+            "question": next_existing_q,
+            "feedback": current_q.get("feedback", {}),
+            "isFollowUp": next_existing_q.get("is_follow_up", False),
+            "questionSource": next_existing_q.get("source", "standard"),
+        }
+
     current_q["userAnswer"] = body.answer
 
-    # 3. Invoke LangGraph Adaptive Feedback & Decision
+    # 3. Reconstruct complete canonical exclusion history (works across restarts and restored sessions)
+    from app.utils.interview_dedup import extract_session_excluded_history
+    session_history = extract_session_excluded_history(interview)
+
+    # 4. Invoke LangGraph Adaptive Feedback & Decision
     try:
         result = await interview_graph.ainvoke({
             "action": "feedback",
@@ -255,7 +280,8 @@ async def submit_answer(
             "followup_count": interview.get("followup_count", 0),
             "max_followups_total": interview.get("max_followups_total", 2),
             "followups_for_current_question": interview.get("followups_for_current_question", 0),
-            "question_ids_asked": interview.get("question_ids_asked", []),
+            "question_ids_asked": list(session_history["excluded_ids"]),
+            "question_fingerprints_asked": list(session_history["asked_fingerprints"]),
             "concepts_covered": interview.get("concepts_covered", []),
             "verified_resume_projects": interview.get("verified_resume_projects", []),
             "verified_resume_skills": interview.get("verified_resume_skills", []),
@@ -310,7 +336,8 @@ async def submit_answer(
         interview["primary_question_count"] = result.get("primary_question_count", interview.get("primary_question_count", 1))
         interview["followup_count"] = result.get("followup_count", 0)
         interview["followups_for_current_question"] = result.get("followups_for_current_question", 0)
-        interview["question_ids_asked"] = result.get("question_ids_asked", [])
+        interview["question_ids_asked"] = result.get("question_ids_asked", list(session_history["excluded_ids"]))
+        interview["question_fingerprints_asked"] = result.get("question_fingerprints_asked", list(session_history["asked_fingerprints"]))
         interview["concepts_covered"] = result.get("concepts_covered", [])
         interview["answers"] = result.get("answers", [])
         interview["evaluations"] = result.get("evaluations", [])

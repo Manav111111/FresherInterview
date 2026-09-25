@@ -434,6 +434,15 @@ async def build_interview_plan_node(state: AdaptiveInterviewState) -> Dict[str, 
         "evaluations": [],
     }
 
+    # Extract initial exclusion history
+    from app.utils.interview_dedup import (
+        extract_session_excluded_history,
+        normalize_question_fingerprint,
+        calculate_question_similarity,
+        get_diverse_fallback_question,
+    )
+    init_history = extract_session_excluded_history(state)
+
     # Select Question 1: If resume projects exist, start with verified project deep-dive or foundational role question
     next_q = await select_next_question(
         role=role,
@@ -443,14 +452,24 @@ async def build_interview_plan_node(state: AdaptiveInterviewState) -> Dict[str, 
         skill_gaps=skill_gaps,
         target_difficulty=state.get("target_difficulty", "medium"),
         question_action="resume_deep_dive" if evidence["projects"] else "technical_question",
-        excluded_ids=[],
+        excluded_ids=list(init_history["excluded_ids"]),
         excluded_concepts=[],
+        excluded_history=init_history,
     )
 
+    q1_id = next_q.get("question_id", "q_001")
+    initial_ids = [q1_id]
+    for r_id in next_q.get("related_question_ids", []):
+        initial_ids.append(r_id)
+
+    q1_fp = normalize_question_fingerprint(next_q.get("question", ""))
+    next_q["normalized_fingerprint"] = q1_fp
+
     initial_state_update["current_question"] = next_q
-    initial_state_update["current_question_id"] = next_q.get("question_id", "q_001")
+    initial_state_update["current_question_id"] = q1_id
     initial_state_update["primary_question_count"] = 1
-    initial_state_update["question_ids_asked"] = [next_q.get("question_id", "q_001")]
+    initial_state_update["question_ids_asked"] = list(set(initial_ids))
+    initial_state_update["question_fingerprints_asked"] = [q1_fp] if q1_fp else []
     if next_q.get("key_concepts"):
         initial_state_update["concepts_covered"] = list(next_q.get("key_concepts"))
     initial_state_update["questions"] = [next_q]
@@ -470,22 +489,39 @@ async def select_next_question(
     excluded_concepts: List[str],
     last_evaluation: Optional[Dict[str, Any]] = None,
     current_primary_q: Optional[Dict[str, Any]] = None,
+    excluded_history: Optional[Dict[str, Any]] = None,
+    fu_count: int = 0,
 ) -> Dict[str, Any]:
     """
-    Selects or generates the next question:
-    - RAG Core Technical (from 760-question pool)
-    - Resume Deep-Dive (strictly verified evidence only, zero fabrication)
-    - Adaptive Follow-up (targeting specific missing concepts)
-    - Scenario / System Design
+    Selects or generates the next question with strict canonical deduplication:
+    - RAG Core Technical (from 760-question pool, with variant & fingerprint exclusion)
+    - Resume Deep-Dive (strictly verified evidence only, rotating across projects)
+    - Adaptive Follow-up (probes missing concepts without repeating main question)
+    - Diverse Fallback Pool (guarantees zero question repetition)
     """
+    from app.utils.interview_dedup import (
+        extract_session_excluded_history,
+        normalize_question_fingerprint,
+        calculate_question_similarity,
+        get_diverse_fallback_question,
+    )
+
+    if excluded_history is None:
+        excluded_history = extract_session_excluded_history({
+            "question_ids_asked": excluded_ids,
+            "concepts_covered": excluded_concepts,
+        })
+
     is_hr = interview_type.lower() == "hr"
 
     # ── 1. Adaptive Follow-Up Question ──
     if question_action == "follow_up" and last_evaluation and current_primary_q:
         missing = last_evaluation.get("missing_points", [])
         demonstrated = last_evaluation.get("correct_points", [])
-        missing_focus = missing[0] if missing else "underlying trade-offs and mechanics"
+        missing_focus = missing[0] if missing else "underlying trade-offs and edge-case resilience"
         pri_q_text = current_primary_q.get("question", "")
+        parent_id = current_primary_q.get("question_id", "q")
+        fu_qid = f"{parent_id}_followup_{fu_count + 1}"
 
         prompt = f"""
 Candidate was asked: "{pri_q_text}"
@@ -493,9 +529,10 @@ Candidate demonstrated: {', '.join(demonstrated[:3]) if demonstrated else 'high-
 Candidate missed: {missing_focus}
 
 TASK: Generate a targeted, conversational follow-up question (1-2 sentences) asking the candidate to explain {missing_focus}.
-Do NOT repeat the original question. Directly probe the missing concept.
+CRITICAL RULE: Do NOT repeat or paraphrase the original question. Directly probe the missing concept: "{missing_focus}".
 Return JSON: {{"question": "...", "timer": 90}}
 """
+        q_text = None
         try:
             ai_res = await ai_router.execute(AIRequest(
                 task_type=TaskType.REAL_TIME_FOLLOWUP,
@@ -505,43 +542,53 @@ Return JSON: {{"question": "...", "timer": 90}}
                 temperature=0.2,
             ))
             if ai_res.success and ai_res.parsed_json:
-                q_text = ai_res.parsed_json.get("question")
-                if q_text:
-                    return {
-                        "question_id": f"{current_primary_q.get('question_id', 'q')}_followup",
-                        "question": q_text,
-                        "difficulty": current_primary_q.get("difficulty", "medium"),
-                        "timer": 90,
-                        "topic": current_primary_q.get("topic", "Follow-up"),
-                        "source": "follow_up",
-                        "is_follow_up": True,
-                        "parent_question_id": current_primary_q.get("question_id"),
-                        "follow_up_reason": last_evaluation.get("follow_up_reason", f"Probe {missing_focus}"),
-                        "key_concepts": [missing_focus],
-                    }
+                candidate_text = ai_res.parsed_json.get("question")
+                if candidate_text:
+                    # Guardrail: Check that AI did not regurgitate the main question
+                    sim = calculate_question_similarity(candidate_text, pri_q_text)
+                    if sim < 0.70:
+                        q_text = candidate_text
         except Exception as e:
             logger.warning(f"Follow-up synthesis notice: {e}")
 
-        # Fallback follow-up
+        # If LLM failed or generated a question too similar to the main question, use targeted probe
+        if not q_text:
+            first_demo = demonstrated[0] if demonstrated else "the core approach"
+            q_text = f"You touched on {first_demo}. Could you elaborate specifically on how you would handle {missing_focus} in production?"
+
         return {
-            "question_id": f"{current_primary_q.get('question_id', 'q')}_followup",
-            "question": f"You mentioned {demonstrated[0] if demonstrated else 'the core approach'}. Could you elaborate specifically on how you would handle {missing_focus}?",
+            "question_id": fu_qid,
+            "question": q_text,
             "difficulty": current_primary_q.get("difficulty", "medium"),
             "timer": 90,
             "topic": current_primary_q.get("topic", "Follow-up"),
             "source": "follow_up",
             "is_follow_up": True,
-            "parent_question_id": current_primary_q.get("question_id"),
+            "parent_question_id": parent_id,
+            "follow_up_reason": last_evaluation.get("follow_up_reason", f"Probe {missing_focus}"),
+            "key_concepts": [missing_focus],
+            "normalized_fingerprint": normalize_question_fingerprint(q_text),
         }
 
-    # ── 2. Resume Deep-Dive Question (Strictly Verified Evidence) ──
+    # ── 2. Resume Deep-Dive Question (Strictly Verified Evidence & Rotation) ──
     if question_action == "resume_deep_dive" and verified_projects:
-        # Pick the project with the most tech details
-        proj = verified_projects[0]
-        p_name = proj.get("name", "your project")
-        p_tech = ", ".join(proj.get("technologies", [])) or "the stack you used"
+        # Find verified project that has NOT yet been asked about
+        eligible_projects = []
+        for p in verified_projects:
+            p_name = p.get("name", "").strip()
+            p_slug = re.sub(r'[^a-zA-Z0-9]', '_', p_name.lower())[:15]
+            qid_candidate = f"resume_{p_slug}"
+            if qid_candidate not in excluded_history["excluded_ids"] and p_name.lower() not in excluded_history["asked_projects"]:
+                eligible_projects.append(p)
 
-        prompt = f"""
+        if eligible_projects:
+            proj = eligible_projects[0]
+            p_name = proj.get("name", "your project")
+            p_tech = ", ".join(proj.get("technologies", [])) or "the stack you used"
+            p_slug = re.sub(r'[^a-zA-Z0-9]', '_', p_name.lower())[:15]
+            resume_qid = f"resume_{p_slug}"
+
+            prompt = f"""
 Candidate's Verified Resume Project:
 - Project Name: {p_name}
 - Verified Tech Stack: {p_tech}
@@ -552,43 +599,49 @@ CRITICAL RULE: You MUST NOT invent any unlisted technologies, metrics, or respon
 TASK: Formulate a realistic, deep-dive interview question asking the candidate to walk through an architectural decision or technical trade-off in {p_name}.
 Return JSON: {{"question": "...", "topic": "{p_name} Architecture", "timer": 120}}
 """
-        try:
-            ai_res = await ai_router.execute(AIRequest(
-                task_type=TaskType.FAST_INTERVIEW_QUESTION,
-                prompt=prompt,
-                system_prompt="You are an engineering interviewer conducting a deep dive on a candidate's verified project.",
-                json_mode=True,
-                temperature=0.2,
-            ))
-            if ai_res.success and ai_res.parsed_json:
-                q_text = ai_res.parsed_json.get("question")
-                if q_text:
-                    return {
-                        "question_id": f"resume_{re.sub(r'[^a-zA-Z0-9]', '_', p_name.lower())[:15]}",
-                        "question": q_text,
-                        "difficulty": target_difficulty,
-                        "timer": 120,
-                        "topic": f"{p_name} Deep-Dive",
-                        "source": "resume_deep_dive",
-                        "resume_reference": p_name,
-                        "is_follow_up": False,
-                        "key_concepts": proj.get("technologies", [])[:3],
-                    }
-        except Exception as e:
-            logger.warning(f"Resume question synthesis notice: {e}")
+            try:
+                ai_res = await ai_router.execute(AIRequest(
+                    task_type=TaskType.FAST_INTERVIEW_QUESTION,
+                    prompt=prompt,
+                    system_prompt="You are an engineering interviewer conducting a deep dive on a candidate's verified project.",
+                    json_mode=True,
+                    temperature=0.2,
+                ))
+                if ai_res.success and ai_res.parsed_json:
+                    q_text = ai_res.parsed_json.get("question")
+                    if q_text:
+                        return {
+                            "question_id": resume_qid,
+                            "question": q_text,
+                            "difficulty": target_difficulty,
+                            "timer": 120,
+                            "topic": f"{p_name} Deep-Dive",
+                            "source": "resume_deep_dive",
+                            "resume_reference": p_name,
+                            "is_follow_up": False,
+                            "key_concepts": proj.get("technologies", [])[:3],
+                            "normalized_fingerprint": normalize_question_fingerprint(q_text),
+                        }
+            except Exception as e:
+                logger.warning(f"Resume question synthesis notice: {e}")
 
-        # Safe fallback
-        return {
-            "question_id": f"resume_{re.sub(r'[^a-zA-Z0-9]', '_', p_name.lower())[:15]}",
-            "question": f"In your project '{p_name}', walk me through the overall technical architecture. What major engineering trade-offs did you consider?",
-            "difficulty": target_difficulty,
-            "timer": 120,
-            "topic": f"{p_name} Architecture",
-            "source": "resume_deep_dive",
-            "resume_reference": p_name,
-            "is_follow_up": False,
-            "key_concepts": proj.get("technologies", []),
-        }
+            # Safe fallback for resume
+            fb_text = f"In your project '{p_name}', walk me through the overall technical architecture. What major engineering trade-offs did you consider?"
+            return {
+                "question_id": resume_qid,
+                "question": fb_text,
+                "difficulty": target_difficulty,
+                "timer": 120,
+                "topic": f"{p_name} Architecture",
+                "source": "resume_deep_dive",
+                "resume_reference": p_name,
+                "is_follow_up": False,
+                "key_concepts": proj.get("technologies", []),
+                "normalized_fingerprint": normalize_question_fingerprint(fb_text),
+            }
+
+        # If all resume projects have already been covered, transition seamlessly to core technical/scenario
+        question_action = "technical_question"
 
     # ── 3. RAG Grounded Core Technical / HR Question ──
     domain_filter = "Behavioral/HR" if is_hr else None
@@ -600,16 +653,18 @@ Return JSON: {{"question": "...", "topic": "{p_name} Architecture", "timer": 120
         domain=domain_filter,
         difficulty=target_difficulty,
         question_type=qtype_filter,
-        excluded_question_ids=excluded_ids,
+        excluded_question_ids=list(excluded_history["excluded_ids"]),
         excluded_recent_concepts=excluded_concepts,
-        top_k=8,
+        top_k=10,
+        excluded_history=excluded_history,
     )
 
     if candidates:
         chosen = candidates[0]
+        q_text = chosen.get("question", "")
         return {
             "question_id": chosen.get("question_id"),
-            "question": chosen.get("question"),
+            "question": q_text,
             "difficulty": chosen.get("difficulty", target_difficulty),
             "timer": 90 if chosen.get("difficulty") == "easy" else 120,
             "topic": chosen.get("subcategory") or chosen.get("domain", "Technical"),
@@ -626,18 +681,31 @@ Return JSON: {{"question": "...", "topic": "{p_name} Architecture", "timer": 120
             "common_mistakes": chosen.get("common_mistakes", []),
             "evaluation_rubric": chosen.get("evaluation_rubric", {}),
             "follow_up_topics": chosen.get("follow_up_topics", []),
+            "related_question_ids": chosen.get("related_question_ids", []),
+            "normalized_fingerprint": normalize_question_fingerprint(q_text),
         }
 
-    # Guaranteed fallback
-    fallback_q = f"Explain the core architectural concepts and best practices required when designing scalable solutions for a {role}." if not is_hr else f"Tell me about a challenging technical or team obstacle you faced, and how you navigated it."
+    # ── 4. Diverse Non-Repeating Fallback Pool ──
+    fallback = get_diverse_fallback_question(
+        interview_type=interview_type,
+        target_difficulty=target_difficulty,
+        excluded_history=excluded_history,
+    )
+    if fallback:
+        fallback["normalized_fingerprint"] = normalize_question_fingerprint(fallback.get("question", ""))
+        return fallback
+
+    # ── 5. Graceful Termination (Candidate Pool Fully Exhausted) ──
+    logger.info(f"All candidate and fallback questions exhausted for role '{role}'. Ending interview gracefully.")
     return {
-        "question_id": "fallback_core_001",
-        "question": fallback_q,
+        "question_id": f"completed_exhausted_{len(excluded_history['excluded_ids'])}",
+        "question": f"Thank you. You have answered all primary questions prepared for this {role} session.",
         "difficulty": target_difficulty,
-        "timer": 90,
-        "topic": "Core Fundamentals",
-        "source": "standard",
+        "timer": 0,
+        "topic": "Conclusion",
+        "source": "completed",
         "is_follow_up": False,
+        "completed": True,
     }
 
 
@@ -1072,10 +1140,19 @@ class AdaptiveInterviewGraph:
             fu_count = state.get("followup_count", 0)
             fu_curr = state.get("followups_for_current_question", 0)
 
-            excluded_ids = list(state.get("question_ids_asked", []))
+            from app.utils.interview_dedup import (
+                extract_session_excluded_history,
+                normalize_question_fingerprint,
+            )
+            # Reconstruct complete history from all asked questions
+            eval_state_for_history = dict(state)
+            eval_state_for_history["questions"] = questions
+            session_history = extract_session_excluded_history(eval_state_for_history)
+
+            excluded_ids = list(session_history["excluded_ids"])
             concepts_cov = list(state.get("concepts_covered", []))
             if curr_q.get("question_id"):
-                excluded_ids.append(curr_q.get("question_id"))
+                excluded_ids.append(str(curr_q.get("question_id")).strip().lower())
             if curr_q.get("key_concepts"):
                 concepts_cov.extend(curr_q.get("key_concepts"))
 
@@ -1117,11 +1194,38 @@ class AdaptiveInterviewGraph:
                 excluded_concepts=concepts_cov,
                 last_evaluation=last_eval,
                 current_primary_q=curr_q,
+                excluded_history=session_history,
+                fu_count=fu_curr,
             )
 
+            # If pool is exhausted and graceful termination is signaled
+            if next_q.get("completed"):
+                sum_res = await generate_summary_node({
+                    "role": state.get("role", "Software Engineer"),
+                    "type": state.get("type", "technical"),
+                    "questions": questions,
+                })
+                return {
+                    "completed": True,
+                    "feedback": last_eval,
+                    "questions": questions,
+                    "report": sum_res.get("report", {}),
+                    "primary_question_count": pri_count,
+                    "followup_count": fu_count,
+                }
+
             questions.append(next_q)
-            if next_q.get("question_id"):
-                excluded_ids.append(next_q.get("question_id"))
+            next_qid = next_q.get("question_id")
+            if next_qid:
+                excluded_ids.append(str(next_qid).strip().lower())
+            for r_id in next_q.get("related_question_ids", []):
+                if r_id:
+                    excluded_ids.append(str(r_id).strip().lower())
+
+            next_fp = normalize_question_fingerprint(next_q.get("question", ""))
+            all_fingerprints = list(session_history.get("asked_fingerprints", set()))
+            if next_fp:
+                all_fingerprints.append(next_fp)
 
             return {
                 "completed": False,
@@ -1133,7 +1237,8 @@ class AdaptiveInterviewGraph:
                 "primary_question_count": pri_count,
                 "followup_count": fu_count,
                 "followups_for_current_question": fu_curr,
-                "question_ids_asked": excluded_ids,
+                "question_ids_asked": list(set(excluded_ids)),
+                "question_fingerprints_asked": list(set(all_fingerprints)),
                 "concepts_covered": concepts_cov,
                 "answers": answers,
                 "evaluations": evaluations,
