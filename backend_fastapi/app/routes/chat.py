@@ -64,11 +64,26 @@ async def handle_chat_message(
     except Exception:
         pass  # Gracefully proceed for guest users
 
-    res = await generate_chatbot_response(
-        message=message,
-        history=body.history,
-        user_context=user_context,
-    )
+    try:
+        res = await generate_chatbot_response(
+            message=message,
+            history=body.history,
+            user_context=user_context,
+        )
+    except Exception as e:
+        logger.error(f"Chatbot response generation failed: {e}", exc_info=True)
+        from app.services.intent_router import route_user_query
+        from app.agents.chatbot_agent import _generate_grounded_fallback, _generate_contextual_chips
+        routing = route_user_query(message)
+        res = {
+            "success": True,
+            "reply": _generate_grounded_fallback(message, routing, user_context),
+            "intent": routing.intent,
+            "links": [],
+            "suggested_actions": _generate_contextual_chips(routing.intent, user_context),
+            "provider": "fallback",
+            "model": "grounded-engine",
+        }
 
     from app.core.telemetry import get_current_request_id
 

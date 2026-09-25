@@ -54,9 +54,22 @@ export default function SolutionVideo({ user, setUser }) {
   const audioRef = useRef(new AudioNarrationEngine());
   const animationFrameRef = useRef(null);
   const lastTimeRef = useRef(null);
+  const currentTimeRef = useRef(0);
 
   const totalDuration = videoData?.totalDuration || 16.0;
   const scenes = videoData?.scenes || [];
+
+  // Keep ref in sync with state for animation loop
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  // Clean up audio on unmount
+  useEffect(() => {
+    return () => {
+      audioRef.current?.destroy();
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -99,22 +112,23 @@ export default function SolutionVideo({ user, setUser }) {
       const delta = (timestamp - lastTimeRef.current) / 1000;
       lastTimeRef.current = timestamp;
 
-      setCurrentTime((prevTime) => {
-        const nextTime = prevTime + delta;
-        if (nextTime >= totalDuration) {
-          setIsPlaying(false);
-          audioRef.current.stop();
-          return totalDuration;
-        }
+      const nextTime = currentTimeRef.current + delta;
+      if (nextTime >= totalDuration) {
+        setIsPlaying(false);
+        setCurrentTime(totalDuration);
+        currentTimeRef.current = totalDuration;
+        audioRef.current.stop();
+        return;
+      }
 
-        // Trigger synchronized voice narration for active scene
-        const activeScene = getActiveScene(nextTime);
-        if (activeScene) {
-          audioRef.current.speakScene(activeScene);
-        }
+      currentTimeRef.current = nextTime;
+      setCurrentTime(nextTime);
 
-        return nextTime;
-      });
+      // Trigger synchronized voice narration for active scene outside state updater
+      const activeScene = getActiveScene(nextTime);
+      if (activeScene) {
+        audioRef.current.speakScene(activeScene);
+      }
 
       animationFrameRef.current = requestAnimationFrame(step);
     };
@@ -130,10 +144,17 @@ export default function SolutionVideo({ user, setUser }) {
 
   // Handle Play / Pause with speech pause/resume sync
   const handlePlayPause = () => {
-    if (currentTime >= totalDuration) {
+    audioRef.current.unlock();
+
+    if (currentTimeRef.current >= totalDuration) {
       setCurrentTime(0);
+      currentTimeRef.current = 0;
       audioRef.current.reset();
       setIsPlaying(true);
+      const firstScene = scenes[0];
+      if (firstScene) {
+        audioRef.current.speakScene(firstScene, true);
+      }
       return;
     }
 
@@ -143,33 +164,52 @@ export default function SolutionVideo({ user, setUser }) {
       audioRef.current.pause();
     } else {
       audioRef.current.resume();
-    }
-  };
-
-  // Handle Seek / Scrub
-  const handleSeek = (newTime) => {
-    setCurrentTime(newTime);
-    audioRef.current.stop();
-    if (isPlaying) {
-      const activeScene = getActiveScene(newTime);
+      const activeScene = getActiveScene(currentTimeRef.current);
       if (activeScene) {
         audioRef.current.speakScene(activeScene);
       }
     }
   };
 
+  // Handle Seek / Scrub
+  const handleSeek = (newTime) => {
+    audioRef.current.unlock();
+    setCurrentTime(newTime);
+    currentTimeRef.current = newTime;
+    audioRef.current.stop();
+    if (isPlaying) {
+      const activeScene = getActiveScene(newTime);
+      if (activeScene) {
+        audioRef.current.speakScene(activeScene, true);
+      }
+    }
+  };
+
   // Handle Replay
   const handleReplay = () => {
+    audioRef.current.unlock();
     audioRef.current.reset();
     setCurrentTime(0);
+    currentTimeRef.current = 0;
     setIsPlaying(true);
+    const firstScene = scenes[0];
+    if (firstScene) {
+      audioRef.current.speakScene(firstScene, true);
+    }
   };
 
   // Handle Mute Toggle
   const handleToggleMute = () => {
+    audioRef.current.unlock();
     const nextMute = !isMuted;
     setIsMuted(nextMute);
     audioRef.current.setMuted(nextMute);
+    if (!nextMute && isPlaying) {
+      const activeScene = getActiveScene(currentTimeRef.current);
+      if (activeScene) {
+        audioRef.current.speakScene(activeScene, true);
+      }
+    }
   };
 
   // Handle Fullscreen
@@ -186,6 +226,7 @@ export default function SolutionVideo({ user, setUser }) {
 
   // Handle Video Generation Submission
   const handleGenerate = async (questionToSubmit) => {
+    audioRef.current.unlock();
     const q = (questionToSubmit || questionInput).trim();
     if (!q) {
       setErrorMsg("Please enter a question or problem to explain.");
@@ -196,6 +237,7 @@ export default function SolutionVideo({ user, setUser }) {
     setIsGenerating(true);
     setIsPlaying(false);
     setCurrentTime(0);
+    currentTimeRef.current = 0;
     audioRef.current.stop();
 
     try {
@@ -203,9 +245,15 @@ export default function SolutionVideo({ user, setUser }) {
       if (res?.data) {
         setVideoData(res.data);
         setCurrentTime(0);
+        currentTimeRef.current = 0;
+        audioRef.current.reset();
         setTimeout(() => {
           setIsPlaying(true);
-        }, 400);
+          const firstScene = res.data.scenes?.[0];
+          if (firstScene) {
+            audioRef.current.speakScene(firstScene, true);
+          }
+        }, 350);
       } else {
         throw new Error("Invalid response format from server.");
       }
@@ -365,14 +413,20 @@ export default function SolutionVideo({ user, setUser }) {
 
             {/* Video Player Container */}
             <div ref={videoContainerRef} className="space-y-4">
-              <WhiteboardCanvas
-                question={videoData.question}
-                topic={videoData.topic}
-                scenes={videoData.scenes}
-                currentTime={currentTime}
-                totalDuration={totalDuration}
-                canvasRef={canvasRef}
-              />
+              <div
+                onClick={handlePlayPause}
+                className="cursor-pointer transition-transform active:scale-[0.998]"
+                title={isPlaying ? "Click canvas to pause" : "Click canvas to play"}
+              >
+                <WhiteboardCanvas
+                  question={videoData.question}
+                  topic={videoData.topic}
+                  scenes={videoData.scenes}
+                  currentTime={currentTime}
+                  totalDuration={totalDuration}
+                  canvasRef={canvasRef}
+                />
+              </div>
 
               <VideoPlayerControls
                 isPlaying={isPlaying}
